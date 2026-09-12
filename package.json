@@ -1,0 +1,14 @@
+{
+  "name": "sand-art",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Sand Art — a jar of coloured sand on the arcade's compiled sim-sand kernel.",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node tools/verify-artifact.mjs && node --test 'tests/*.test.js'",
+    "stage": "node tools/stage.mjs dist"
+  }
+}

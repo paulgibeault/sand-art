@@ -27,6 +27,27 @@ Re-run `./dev.sh` after editing — it copies the app into `.dev-stage`.
 Add `?dev=1` to get `window.__sandArt` (`running()`, `sim`, `pickTool`,
 `pickTint`, `flushSave`) for driving it from a script.
 
+## CI / deploy
+
+This repo follows the fleet CI/CD standard (launcher `GAME_INTEGRATION.md`
+§13a). `.github/workflows/pages.yml` is a thin caller of the launcher's
+`fleet-ci.yml`: every push to `main` runs the contract gates and `npm test`,
+stages `dist/` with `tools/stage.mjs`, bumps the patch version (`package.json`,
+`sw.js`'s `APP_VERSION`) and deploys to GitHub Pages at
+`https://paulgibeault.github.io/sand-art/`. Pull requests test and smoke, and
+never deploy.
+
+- `npm test` — `tools/verify-artifact.mjs` stages into a temp dir and proves
+  every file `index.html` and `manifest.json` name is published and precached,
+  then `node --test tests/`.
+- `npm run stage` — writes the deploy artifact to `dist/` (git-ignored).
+- `tools/verify-artifact.mjs` and `tools/inject-precache.mjs` are byte-identical
+  fleet copies: never edit them here, re-copy from the launcher.
+- `sw.js`'s precache list is generated at stage time; leave a published file
+  out of it by naming it in `PRECACHE_EXCLUDE` in `tools/stage.mjs`.
+- The kernel (`/sdk/v3/arcade-sim-sand.js` + `.wasm`) is served by the
+  launcher origin and is never vendored or precached here.
+
 ## Tools
 
 | Tool | What it does | Option |

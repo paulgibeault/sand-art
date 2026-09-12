@@ -1,1 +1,16 @@
 .DS_Store
+node_modules/
+.vscode/
+.idea/
+*.log
+
+# Launcher-owned scripts, served by the origin from /sdk/v3/ — never vendored.
+arcade-sdk.js
+arcade-audio.js
+arcade-sim-sand.js
+arcade-sim-sand.wasm
+
+# Deploy artifact — staged by CI, never committed.
+dist/
+scratch/
+.arcade-stage/

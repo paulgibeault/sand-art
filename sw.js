@@ -61,13 +61,6 @@ const CACHE_NAME = `${GAME_ID}-v${APP_VERSION}`;
 const ASSETS = [
   './',
   './index.html',
-  './main.js',
-  './tools.js',
-  './palette.js',
-  './persist.js',
-  './style.css',
-  './manifest.json',
-  './icon.svg',
 ];
 // arcade:precache-end
 

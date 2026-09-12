@@ -15,7 +15,7 @@
 const KEY = 'current';
 const VERSION = 1;
 
-function toBase64(bytes) {
+export function toBase64(bytes) {
     let s = '';
     for (let i = 0; i < bytes.length; i += 8192) {
         s += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
@@ -23,7 +23,7 @@ function toBase64(bytes) {
     return btoa(s);
 }
 
-function fromBase64(s) {
+export function fromBase64(s) {
     const bin = atob(s);
     const out = new Uint8Array(bin.length);
     for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
