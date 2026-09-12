@@ -82,20 +82,52 @@ function blit() {
     viewCtx.drawImage(off, 0, 0, els.view.width, els.view.height);
 }
 
-// The largest 3:5 box that fits the stage, in CSS px; the backing store is
-// scaled by devicePixelRatio so the grains stay square on a 3× phone.
+// The largest 3:5 box that fits inside the stage's padding, in CSS px; the
+// backing store is scaled by devicePixelRatio so the grains stay square on a
+// 3× phone. When a whole number of device pixels per cell costs less than a
+// tenth of the jar, the box snaps to it: every grain is then the same crisp
+// square instead of a mix of 3- and 4-pixel ones. The stage learns the jar's
+// height through --jar-h so the CSS can set its shelf under the jar's foot.
 function fit() {
-    const box = els.stage.getBoundingClientRect();
-    const pad = 12;
-    const availW = Math.max(60, box.width - pad * 2), availH = Math.max(100, box.height - pad * 2);
-    const cw = Math.floor(Math.min(availW, availH * W / H));
-    const ch = Math.floor(cw * H / W);
+    const cs = getComputedStyle(els.stage);
+    const availW = Math.max(60, els.stage.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight));
+    const availH = Math.max(100, els.stage.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom)
+        - parseFloat(getComputedStyle(els.jar).marginBottom));
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    let cw = Math.min(availW, availH * W / H);
+    const perCell = Math.floor(cw * dpr / W);
+    if (perCell >= 1 && perCell * W >= cw * dpr * 0.9) cw = perCell * W / dpr;
+    cw = Math.floor(cw * dpr) / dpr;             // whole device pixels either way
+    const ch = cw * H / W;
     els.jar.style.width = cw + 'px';
     els.jar.style.height = ch + 'px';
-    const dpr = Math.min(window.devicePixelRatio || 1, 3);
+    els.stage.style.setProperty('--jar-h', ch + 'px');
+    els.stage.dataset.fit = '1';
     els.view.width = Math.round(cw * dpr);
     els.view.height = Math.round(ch * dpr);
     if (sim) blit();
+}
+
+// A strip that scrolls sideways tells its CSS which edges hide more (the
+// fade hint is drawn only there), and keeps the chosen item in view.
+function watchStrip(el) {
+    const mark = () => {
+        const more = (el.scrollLeft > 1 ? 'l' : '') + (el.scrollLeft + el.clientWidth < el.scrollWidth - 1 ? 'r' : '');
+        if (el.dataset.more !== more) el.dataset.more = more;
+    };
+    el.addEventListener('scroll', mark, { passive: true });
+    new ResizeObserver(mark).observe(el);
+    mark();
+}
+function reveal(el, item) {
+    if (!item || el.scrollWidth <= el.clientWidth) return;
+    const pad = parseFloat(getComputedStyle(el).scrollPaddingLeft) || 0;
+    const left = item.offsetLeft - el.offsetLeft, right = left + item.offsetWidth;
+    if (left < el.scrollLeft + pad || right > el.scrollLeft + el.clientWidth - pad) {
+        // Land on the item's own snap position (its start, or the strip's
+        // end for the last one) so the snap cannot pull it back under the fade.
+        el.scrollLeft = item === el.lastElementChild ? el.scrollWidth : left - pad;
+    }
 }
 
 function toCell(e) {
@@ -175,6 +207,7 @@ function pickTool(id) {
         const on = b.dataset.id === tool.id;
         b.classList.toggle('on', on);
         b.setAttribute('aria-checked', on ? 'true' : 'false');
+        if (on) reveal(els.toolbar, b);
     }
     els.status.textContent = tool.hint;
     const o = tool.option;
@@ -193,6 +226,7 @@ function pickTint(t) {
         const on = Number(b.dataset.t) === t;
         b.classList.toggle('on', on);
         b.setAttribute('aria-checked', on ? 'true' : 'false');
+        if (on) reveal(els.palette, b);
     }
 }
 
@@ -273,6 +307,8 @@ function buildUi() {
     v.addEventListener('contextmenu', (e) => e.preventDefault());
 
     new ResizeObserver(fit).observe(els.stage);
+    watchStrip(els.toolbar);
+    watchStrip(els.palette);
 }
 
 // ── boot ───────────────────────────────────────────────────────────────────
@@ -283,6 +319,8 @@ async function boot() {
         return;
     }
     pullSettings();
+    // The launcher's bar already carries the title: let the CSS drop ours.
+    if (Arcade.context && Arcade.context.framed) document.documentElement.dataset.framed = 'true';
     // The seed only decides which diagonal a grain tries first; it is fixed
     // so a saved picture and its replay would agree. Not a daily — a jar is
     // a jar every day.
