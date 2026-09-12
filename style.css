@@ -1,10 +1,17 @@
 /* style.css — Sand Art.
  *
  * The launcher pushes accessibility settings onto <html> and the SDK applies
- * them: --font-scale for text size, data-theme for light/dark. Everything is
- * in rem so the chrome scales with the font setting; the jar itself is sized
- * in JS from whatever room is left, so a larger font simply means a slightly
- * smaller jar rather than a squeezed toolbar.
+ * them: --font-scale for text size, data-theme for light/dark, data-handedness
+ * for which side the controls sit on. Everything is in rem so the chrome
+ * scales with the font setting; the jar itself is sized in JS from whatever
+ * room the stage has left, so a larger font simply means a slightly smaller
+ * jar rather than a squeezed toolbar.
+ *
+ * Layout in one sentence: the jar is the content and gets the most room; the
+ * controls stack under it on portrait phones and move to a side column on
+ * anything landscape and wide enough for one. The 192×320 grid fixes the
+ * jar's aspect at 3:5, so the space around it is dressed as a shelf under a
+ * soft spotlight rather than left as blank bars.
  *
  * No animations at all (GAME_INTEGRATION §6d): the sand is the motion.
  */
@@ -19,6 +26,11 @@
   --accent-fg: #fff;
   --glass: rgba(255, 255, 255, 0.55);
   --glass-edge: rgba(60, 50, 40, 0.28);
+  --spot: rgba(255, 250, 240, 0.9);       /* the light pooled behind the jar */
+  --shelf: #c9a06a;                        /* pale oak */
+  --shelf-edge: #a9804d;
+  --shelf-shadow: rgba(60, 40, 20, 0.35);
+  --tap: 2.75rem;                          /* 44 px at scale 1: every hit target */
 }
 :root[data-theme="dark"] {
   --bg: #141418;
@@ -29,6 +41,10 @@
   --accent-fg: #141418;
   --glass: rgba(255, 255, 255, 0.10);
   --glass-edge: rgba(255, 255, 255, 0.28);
+  --spot: rgba(70, 64, 80, 0.55);
+  --shelf: #4a3526;                        /* dark walnut */
+  --shelf-edge: #2e2018;
+  --shelf-shadow: rgba(0, 0, 0, 0.6);
 }
 
 * { box-sizing: border-box; }
@@ -42,27 +58,62 @@ body {
   overscroll-behavior: none;
 }
 
+/* ── the frame ───────────────────────────────────────────────────────────
+ * A grid with three named areas. Portrait: top / stage / controls stacked.
+ * Landscape (below): the stage takes the left, top + controls share a column
+ * on the right — or the left, for a left-handed player.
+ */
 .app {
   height: 100vh;
   height: 100dvh;
-  display: flex;
-  flex-direction: column;
-  padding-bottom: env(safe-area-inset-bottom);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "top" "stage" "controls";
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+           env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 /* ── top bar ─────────────────────────────────────────────────────────── */
 .top {
-  display: flex;
+  grid-area: top;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "title hint clear";
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.5rem 0.9rem 0.25rem;
+  column-gap: 0.75rem;
+  padding: 0.3rem 0.9rem 0.2rem;
 }
-h1 { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.01em; }
-.status { flex: 1; font-size: 0.8rem; color: var(--muted); min-height: 1.1em; }
+h1 { grid-area: title; margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.01em; }
+/* The tool hint is clamped so the header's height never jumps with the
+ * hint's length: two lines at most, then an ellipsis. */
+.status {
+  grid-area: hint;
+  font-size: 0.8rem;
+  line-height: 1.25;
+  color: var(--muted);
+  min-height: 1.25em;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+/* Inside the launcher its bar already says "Sand Art" (main.js flags it on
+ * <html>); on a narrow phone the jar is the title. The heading stays in the
+ * accessibility tree either way. */
+[data-framed] h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+@media (max-width: 479px) {
+  h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .top { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "hint clear"; }
+}
 .ghost {
+  grid-area: clear;
   font: inherit;
   font-size: 0.85rem;
-  padding: 0.45rem 0.8rem;
+  min-height: var(--tap);
+  padding: 0.45rem 0.9rem;
   border-radius: 999px;
   border: 1px solid var(--glass-edge);
   background: transparent;
@@ -70,22 +121,46 @@ h1 { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.01em; }
   cursor: pointer;
 }
 
-/* ── the jar ─────────────────────────────────────────────────────────── */
+/* ── the jar and its shelf ───────────────────────────────────────────────
+ * The jar is a fixed 3:5 box centred in the stage. What is left over is
+ * not a bar: a spotlight pools behind the jar and a shelf runs under it,
+ * placed by the JS through --jar-h so it always meets the jar's foot.
+ */
 .stage {
-  flex: 1;
+  grid-area: stage;
+  position: relative;
   min-height: 0;
+  min-width: 0;
   display: grid;
   place-items: center;
-  padding: 0.5rem 0;
+  padding: 0.5rem 0.75rem 1rem;
+  background: radial-gradient(ellipse 60% 55% at 50% 45%, var(--spot), transparent 100%);
+  overflow: hidden;
 }
+.stage::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0;
+  top: calc(50% - 0.25rem + var(--jar-h, 0px) / 2 - 3px);
+  height: 0.7rem;
+  background: linear-gradient(var(--shelf), var(--shelf-edge));
+  border-top: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0.5rem 0.9rem -0.3rem var(--shelf-shadow);
+  pointer-events: none;
+  display: none;
+}
+.stage[data-fit]::after { display: block; }
 .jar {
   position: relative;
+  z-index: 1;
   border-radius: 8px 8px 26px 26px;
   box-shadow:
     inset 0 0 0 3px var(--glass-edge),
     inset 8px 0 18px -10px var(--glass),
     0 10px 24px -14px rgba(0, 0, 0, 0.6);
   overflow: hidden;
+  /* sits up a little so the rounded foot reads as resting on the shelf */
+  margin-bottom: 0.4rem;
 }
 /* the rim: a lighter band along the top edge, drawn over the canvas */
 .jar::after {
@@ -106,32 +181,64 @@ h1 { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.01em; }
   -webkit-user-select: none;
 }
 
-/* ── options row ─────────────────────────────────────────────────────── */
+/* ── controls ────────────────────────────────────────────────────────── */
+.controls {
+  grid-area: controls;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* options row */
 .options {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  padding: 0.2rem 1rem;
+  min-height: var(--tap);
+  padding: 0 1rem;
   font-size: 0.85rem;
   color: var(--muted);
 }
 .options label { min-width: 3.2rem; }
-.options input[type="range"] { flex: 1; accent-color: var(--accent); min-height: 2rem; }
+.options input[type="range"] {
+  flex: 1;
+  min-width: 0;
+  max-width: 28rem;
+  accent-color: var(--accent);
+  min-height: var(--tap);
+  margin: 0;
+}
 .options output { min-width: 1.6rem; text-align: right; font-variant-numeric: tabular-nums; }
 
-/* ── palette row ─────────────────────────────────────────────────────── */
-.palette {
+/* A strip: one row that scrolls sideways when it must, snapping to items.
+ * The JS marks which edges have more behind them (data-more="l"/"r"/"lr")
+ * and the strip fades on those edges only, so the hint is honest. */
+.strip {
   display: flex;
-  gap: 0.4rem;
-  padding: 0.35rem 0.9rem;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: 0.9rem;
+  -webkit-overflow-scrolling: touch;
 }
-.palette::-webkit-scrollbar { display: none; }
+.strip::-webkit-scrollbar { display: none; }
+.strip > * { scroll-snap-align: start; }
+.strip > :last-child { scroll-snap-align: end; }   /* the strip's end is a resting place too */
+.strip[data-more="r"]  { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 3rem), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 3rem), transparent); }
+.strip[data-more="l"]  { -webkit-mask-image: linear-gradient(to right, transparent, #000 3rem); mask-image: linear-gradient(to right, transparent, #000 3rem); }
+.strip[data-more="lr"] { -webkit-mask-image: linear-gradient(to right, transparent, #000 3rem, #000 calc(100% - 3rem), transparent); mask-image: linear-gradient(to right, transparent, #000 3rem, #000 calc(100% - 3rem), transparent); }
+
+/* palette */
+.palette {
+  gap: 0.5rem;
+  padding: 0.25rem 0.9rem;
+}
 .swatch {
   flex: 0 0 auto;
-  width: 2.1rem;
-  height: 2.1rem;
+  width: var(--tap);
+  height: var(--tap);
   border-radius: 50%;
   border: 2px solid transparent;
   background: var(--c);
@@ -141,20 +248,16 @@ h1 { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.01em; }
 }
 .swatch.on { border-color: var(--fg); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--c); }
 
-/* ── toolbar ─────────────────────────────────────────────────────────── */
+/* toolbar */
 .toolbar {
-  display: flex;
   gap: 0.35rem;
-  padding: 0.4rem 0.9rem 0.6rem;
-  overflow-x: auto;
-  scrollbar-width: none;
+  padding: 0.3rem 0.9rem 0.4rem;
   background: var(--chrome);
 }
-.toolbar::-webkit-scrollbar { display: none; }
 .tool {
   flex: 0 0 auto;
   min-width: 3.6rem;
-  min-height: 3rem;
+  min-height: var(--tap);
   padding: 0 0.7rem;
   font: inherit;
   font-size: 0.85rem;
@@ -163,5 +266,120 @@ h1 { margin: 0; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.01em; }
   background: transparent;
   color: var(--fg);
   cursor: pointer;
+  white-space: nowrap;
 }
 .tool.on { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+
+/* ── tablets and anything wide, portrait ─────────────────────────────────
+ * Room for every tool and swatch at once: the strips wrap and centre
+ * instead of scrolling, and the buttons grow to a comfortable size.
+ */
+@media (min-width: 600px) and (orientation: portrait) {
+  .strip {
+    display: grid;
+    justify-content: center;
+    overflow: visible;
+    scroll-snap-type: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .stage { padding: 1rem 1.5rem 1.75rem; }
+  .palette { grid-template-columns: repeat(8, var(--tap)); gap: 0.6rem 0.75rem; padding: 0.5rem 1.25rem; }
+  .toolbar { grid-template-columns: repeat(6, minmax(0, 8rem)); gap: 0.4rem; padding: 0.6rem 1.25rem 0.8rem; }
+  .tool { min-width: 0; min-height: 3rem; font-size: 0.95rem; padding: 0 0.5rem; }
+  .options { justify-content: center; padding: 0.25rem 1.5rem; }
+  .options input[type="range"] { max-width: 24rem; }
+}
+
+/* ── landscape: the controls move beside the jar ───────────────────────
+ * Any landscape viewport at least 600 px wide: phones on their side,
+ * tablets on their side, every desktop window. The jar takes the full
+ * height on one side; the title, hint and controls share a column on the
+ * other, right by default and left for a left-handed player (§5).
+ */
+@media (min-width: 600px) and (orientation: landscape) {
+  .app {
+    grid-template-columns: minmax(0, 1fr) minmax(17rem, 23rem);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas: "stage top" "stage controls";
+  }
+  [data-handedness="left"] .app {
+    grid-template-columns: minmax(17rem, 23rem) minmax(0, 1fr);
+    grid-template-areas: "top stage" "controls stage";
+  }
+  .stage { padding: 1rem 1.25rem 1.5rem; }
+  .top {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "title clear" "hint hint";
+    padding: 0.75rem 1rem 0.25rem;
+  }
+  .status { -webkit-line-clamp: 3; line-clamp: 3; }
+  .controls {
+    overflow-y: auto;                      /* a tall font on a short phone still reaches every tool */
+    padding: 0 0.6rem 0.6rem;
+    gap: 0.35rem;
+  }
+  .options { padding: 0 0.4rem; min-height: var(--tap); }
+  .options input[type="range"] { max-width: none; }
+  /* both strips become wrapping grids: everything visible, nothing to scroll */
+  .strip {
+    display: grid;
+    overflow: visible;
+    scroll-snap-type: none;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .palette {
+    grid-template-columns: repeat(auto-fill, minmax(var(--tap), 1fr));
+    justify-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.4rem;
+  }
+  .toolbar {
+    grid-template-columns: repeat(auto-fill, minmax(5.4rem, 1fr));
+    gap: 0.3rem;
+    padding: 0.5rem;
+    border-radius: 0.9rem;
+  }
+  .tool { min-width: 0; padding: 0 0.4rem; }
+}
+
+/* A phone on its side: the column is short, so it is packed — no title
+ * (the hint and Empty jar share one row), six tools across, the palette in
+ * two rows. Whatever still does not fit scrolls within the column. */
+@media (min-width: 600px) and (max-height: 520px) and (orientation: landscape) {
+  .app { grid-template-columns: minmax(0, 1fr) clamp(17rem, 52vw, 28rem); }
+  [data-handedness="left"] .app { grid-template-columns: clamp(17rem, 52vw, 28rem) minmax(0, 1fr); }
+  h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .top { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "hint clear"; padding: 0.4rem 0.8rem 0.1rem; }
+  .status { -webkit-line-clamp: 2; line-clamp: 2; }
+  .stage { padding: 0.6rem 1rem 1.1rem; }
+  .controls { gap: 0.2rem; padding: 0 0.5rem 0.4rem; }
+  .palette { gap: 0.3rem; padding: 0.2rem 0.3rem; }
+  .toolbar { grid-template-columns: repeat(auto-fill, minmax(4rem, 1fr)); gap: 0.25rem; padding: 0.4rem; }
+  .tool { font-size: 0.8rem; padding: 0 0.2rem; }
+}
+
+/* On a wide, tall screen the column is centred against the jar rather than
+ * pinned to the top, and everything gets a little more air. */
+@media (min-width: 900px) and (min-height: 700px) and (orientation: landscape) {
+  .app {
+    grid-template-columns: minmax(0, 1fr) minmax(26rem, 28rem);
+    grid-template-rows: minmax(0, 1fr) auto auto minmax(0, 1fr);
+    grid-template-areas: "stage ." "stage top" "stage controls" "stage .";
+  }
+  [data-handedness="left"] .app {
+    grid-template-columns: minmax(26rem, 28rem) minmax(0, 1fr);
+    grid-template-areas: ". stage" "top stage" "controls stage" ". stage";
+  }
+  .stage { padding: 1.5rem 2rem 2.25rem; }
+  .top { padding: 0.5rem 1.25rem 0.25rem; }
+  .controls { overflow: visible; padding: 0 1rem 1rem; gap: 0.6rem; }
+  .palette { grid-template-columns: repeat(8, 1fr); gap: 0.5rem; padding: 0.4rem; }
+  .toolbar { grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr)); gap: 0.4rem; padding: 0.6rem; }
+  .tool { min-height: 3rem; font-size: 0.95rem; }
+}
+
+/* With the title gone (framed, or a narrow phone) the hint and Empty jar
+ * share one row in every layout. */
+[data-framed] .top { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "hint clear"; }

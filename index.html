@@ -34,16 +34,21 @@
       </div>
     </div>
 
-    <!-- One option per tool (flow, radius). Hidden when the tool has none. -->
-    <div class="options" id="options" hidden>
-      <label for="option"><span id="option-label">Flow</span></label>
-      <input id="option" type="range" min="1" max="10" step="1" value="1">
-      <output id="option-value" for="option">1</output>
+    <!-- The controls travel as one block: under the jar on a portrait phone,
+         beside it in landscape (style.css). The palette and toolbar are
+         strips that scroll sideways when the row is too narrow for them. -->
+    <div class="controls">
+      <!-- One option per tool (flow, radius). Hidden when the tool has none. -->
+      <div class="options" id="options" hidden>
+        <label for="option"><span id="option-label">Flow</span></label>
+        <input id="option" type="range" min="1" max="10" step="1" value="1">
+        <output id="option-value" for="option">1</output>
+      </div>
+
+      <div class="palette strip" id="palette" role="radiogroup" aria-label="Sand colour"></div>
+
+      <nav class="toolbar strip" id="toolbar" role="radiogroup" aria-label="Tool"></nav>
     </div>
-
-    <div class="palette" id="palette" role="radiogroup" aria-label="Sand colour"></div>
-
-    <nav class="toolbar" id="toolbar" role="radiogroup" aria-label="Tool"></nav>
   </main>
 
   <script type="module" src="main.js"></script>
