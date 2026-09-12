@@ -125,6 +125,9 @@ const loop = Arcade.loop((deltaMs) => {
         acc -= FIXED_MS;
         steps++;
     }
+    // Falling sand changes the picture with no finger on it. Without this
+    // the debounce could save a grain in mid-air and the settled jar never.
+    if (steps && sim.activeCells() > 0) markDirty();
     if (acc > FIXED_MS * MAX_STEPS_PER_FRAME) acc = 0;   // never owe more than a burst
     frameNo++;
     // Power saver: the sim still runs at 60 Hz (the picture must not change),
@@ -294,13 +297,18 @@ async function boot() {
     pickTool(prefs && prefs.tool);
     pickTint(Math.max(0, Math.min(SWATCHES.length - 1, tint - sand.materials.SAND_BASE)));
 
-    const restored = await pictures.restore(sim, sand);
-    if (restored) Arcade.ui.toast('Your jar is where you left it', { kind: 'info' });
-
     fit();
     // Every chunk is active before the first step, so quiet() is false until
     // one has run: waking here draws the first frame and then rests itself.
     wake();
+
+    // The saved picture comes back after the first frame, not before it: a
+    // bridged store waits on the launcher, and an empty jar on screen beats
+    // a blank one while it answers.
+    if (await pictures.restore(sim, sand)) {
+        wake();
+        Arcade.ui.toast('Your jar is where you left it', { kind: 'info' });
+    }
 
     Arcade.onSettingsChange(() => {
         const was = settings.theme;
