@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Sand Art</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+
+  <!-- The Arcade SDK, root-relative and major-pinned (GAME_INTEGRATION §2),
+       then the sand kernel companion from the SAME directory: the wrapper
+       fetches its .wasm from beside itself, so the two must be siblings. -->
+  <script src="/sdk/v3/arcade-sdk.js"></script>
+  <script src="/sdk/v3/arcade-sim-sand.js"></script>
+  <script>
+    Arcade.init({ gameId: 'sand-art' });
+  </script>
+</head>
+<body>
+  <main class="app">
+    <header class="top">
+      <h1>Sand Art</h1>
+      <span class="status" id="status" aria-live="polite"></span>
+      <button id="clear" class="ghost" type="button">Empty jar</button>
+    </header>
+
+    <!-- The jar. The canvas is sized by JS to the largest 3:5 box that fits
+         the stage; everything drawn on it is one scaled blit of the kernel's
+         framebuffer, smoothing off, so each cell reads as a grain. -->
+    <div class="stage" id="stage">
+      <div class="jar" id="jar">
+        <canvas id="view" aria-label="A jar of coloured sand"></canvas>
+      </div>
+    </div>
+
+    <!-- One option per tool (flow, radius). Hidden when the tool has none. -->
+    <div class="options" id="options" hidden>
+      <label for="option"><span id="option-label">Flow</span></label>
+      <input id="option" type="range" min="1" max="10" step="1" value="1">
+      <output id="option-value" for="option">1</output>
+    </div>
+
+    <div class="palette" id="palette" role="radiogroup" aria-label="Sand colour"></div>
+
+    <nav class="toolbar" id="toolbar" role="radiogroup" aria-label="Tool"></nav>
+  </main>
+
+  <script type="module" src="main.js"></script>
+
+  <!-- Service worker for offline standalone visits, loopback-guarded so dev
+       edits are never masked by a stale cache (GAME_INTEGRATION §10). -->
+  <script>
+    if ('serviceWorker' in navigator &&
+        !/^(127\.|localhost$|0\.0\.0\.0$|::1$)/.test(location.hostname)) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js', { scope: '/sand-art/' })
+          .catch((err) => console.warn('SW registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Sand Art icon">
+  <rect width="512" height="512" rx="96" fill="#141418"/>
+  <!-- a jar: layered sand, glass edge, a lid -->
+  <clipPath id="jar"><path d="M156 150 h200 v240 a40 40 0 0 1 -40 40 h-120 a40 40 0 0 1 -40 -40 z"/></clipPath>
+  <g clip-path="url(#jar)">
+    <rect x="156" y="150" width="200" height="300" fill="#1e1e28"/>
+    <path d="M156 430 h200 v20 h-200 z" fill="#b0543a"/>
+    <path d="M156 395 q50 -22 100 0 t100 0 v40 h-200 z" fill="#c78634"/>
+    <path d="M156 360 q60 18 100 0 t100 -10 v50 h-200 z" fill="#f0e4c8"/>
+    <path d="M156 325 q40 -20 100 -4 t100 8 v40 h-200 z" fill="#28aaaa"/>
+    <path d="M156 292 q60 20 100 6 t100 -14 v40 h-200 z" fill="#c82838"/>
+    <path d="M156 262 q50 -14 100 2 t100 4 v32 h-200 z" fill="#d6b25c"/>
+  </g>
+  <path d="M156 150 h200 v240 a40 40 0 0 1 -40 40 h-120 a40 40 0 0 1 -40 -40 z" fill="none" stroke="#e8e4dc" stroke-width="14" stroke-linejoin="round"/>
+  <rect x="140" y="112" width="232" height="44" rx="14" fill="#e0a458"/>
+</svg>
