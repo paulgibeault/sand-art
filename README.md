@@ -22,10 +22,7 @@ staging, from a launcher checkout that has `sdk/v3/arcade-sim-sand.js`:
 ./dev.sh stop
 ```
 
-Re-run `./dev.sh` after editing — it copies the app into `.dev-stage`. Note
-that `dev.sh` currently stages `sdk/v*/*.js` but not the `.wasm` beside it; if
-the kernel 404s in dev, copy `sdk/v3/arcade-sim-sand.wasm` into
-`.dev-stage/sdk/v3/` (or fix the glob).
+Re-run `./dev.sh` after editing — it copies the app into `.dev-stage`.
 
 Add `?dev=1` to get `window.__sandArt` (`running()`, `sim`, `pickTool`,
 `pickTint`, `flushSave`) for driving it from a script.
@@ -39,7 +36,8 @@ Add `?dev=1` to get `window.__sandArt` (`running()`, `sim`, `pickTool`,
 | Funnel | One grain per step, exactly where you point | — |
 | Brush | Paints sand cells directly | Size |
 | Wall | Draws dividers and stencils the sand piles against | Size |
-| Unwall | Erases walls only; sand stays | Size |
+| Unwall | Erases walls only; sand stays (`sim.replace(WALL, EMPTY, …)`) | Size |
+| Recolour | Swaps the tint under your finger at touch-down for the chosen one, along the stroke (`sim.replace`) | Size |
 | Erase | Removes anything | Size |
 | Stick | Thin stick (r=1): drag to shove grains, tap to poke | — |
 | Stick+ | Thick stick (r=4): moves a whole pile | — |
@@ -47,7 +45,7 @@ Add `?dev=1` to get `window.__sandArt` (`running()`, `sim`, `pickTool`,
 | Water | Pours water; sand sinks through it | Flow |
 
 Sixteen colours: the kernel's own sand plus fifteen curated tints set through
-`sim.setPalette` on ids 17..31 (`palette.js`); the remaining tints keep the
+the batch `sim.setPalette([...])` on ids 17..31 (`palette.js`); the remaining tints keep the
 kernel defaults.
 
 **Empty jar** asks first (`Arcade.ui.confirm`, a real dialog inside the
@@ -61,7 +59,7 @@ launcher where native `confirm` is a no-op).
 | `main.js` | Boot, the `Arcade.loop` wake/rest loop, pointer → cells, the blit, UI wiring. |
 | `tools.js` | The tool table: data plus `down`/`move`/`frame` hooks that only touch the sim. |
 | `palette.js` | The curated tints, and empty/wall colours per theme. |
-| `persist.js` | Save/restore through `Arcade.store` (grid as base64; restore is per-cell paint). |
+| `persist.js` | Save/restore through `Arcade.store` (grid as base64; restore is one `sim.load`). |
 | `style.css` | Font-scale and theme aware chrome; no animations. |
 | `sw.js` | The fleet's reference worker, scoped to `/sand-art/`. |
 

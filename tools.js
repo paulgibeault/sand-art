@@ -7,9 +7,9 @@
  *   move(p)   the finger moved a cell     — strokes, sticks
  *   frame(p)  once per sim step while held — sources (pour, sprinkle, water)
  *
- * p = { sim, sand, tint, rng, x, y, lx, ly, opt } in CELL units: x,y where
- * the finger is now, lx,ly where it was at the previous move, opt the tool's
- * slider value. The hooks call the kernel and nothing else — no DOM, no
+ * p = { sim, sand, tint, rng, x, y, lx, ly, opt, state } in CELL units: x,y
+ * where the finger is now, lx,ly where it was at the previous move, opt the
+ * tool's slider value, state a scratch object that lives for one stroke. The hooks call the kernel and nothing else — no DOM, no
  * timing — so a recorded (tool, pointer) script replays exactly, which is the
  * property the kernel exists for.
  *
@@ -103,10 +103,20 @@ export const TOOLS = [
         id: 'unwall', label: 'Unwall',
         hint: 'Erase walls only; the sand stays',
         option: { label: 'Size', min: 1, max: 6, value: 2 },
-        // paint() has no "only where wall" mode, so this is get()+paint per
-        // cell in the disc — small radii, so the per-cell calls are cheap.
-        down(p) { unwallDisc(p, p.x, p.y); },
-        move(p) { alongStroke(p.lx, p.ly, p.x, p.y, (x, y) => unwallDisc(p, x, y)); },
+        ...stencil((p) => p.sand.materials.WALL, (p) => p.sand.materials.EMPTY),
+    },
+    {
+        id: 'recolour', label: 'Recolour',
+        hint: 'Change the colour under your finger to the chosen one',
+        option: { label: 'Size', min: 1, max: 8, value: 3 },
+        // The material under the finger at touch-down is the one that gets
+        // replaced for the whole stroke, so dragging across a boundary keeps
+        // recolouring the layer you started on, not whatever comes next.
+        down(p) {
+            p.state.from = p.sim.get(p.x, p.y);
+            recolourAt(p, p.x, p.y);
+        },
+        move(p) { alongStroke(p.lx, p.ly, p.x, p.y, (x, y) => recolourAt(p, x, y)); },
     },
     {
         id: 'erase', label: 'Erase',
@@ -143,17 +153,22 @@ export const TOOLS = [
     },
 ];
 
-function unwallDisc(p, cx, cy) {
-    const { sim, sand } = p;
-    const r = p.opt, r2 = r * r;
-    for (let dy = -r; dy <= r; dy++) {
-        for (let dx = -r; dx <= r; dx++) {
-            if (dx * dx + dy * dy > r2) continue;
-            const x = cx + dx, y = cy + dy;
-            if (x < 0 || y < 0 || x >= sim.width || y >= sim.height) continue;
-            if (sim.get(x, y) === sand.materials.WALL) sim.paint(sand.materials.EMPTY, x, y, 0);
-        }
-    }
+// A stencil stroke: every `from` cell in the disc along the path becomes
+// `to` (sim.replace, R16) — nothing else in the disc is touched.
+function stencil(from, to) {
+    const at = (p, x, y) => p.sim.replace(from(p), to(p), x, y, p.opt);
+    return {
+        down(p) { at(p, p.x, p.y); },
+        move(p) { alongStroke(p.lx, p.ly, p.x, p.y, (x, y) => at(p, x, y)); },
+    };
+}
+
+// Recolour only ever swaps one sand tint for another: a press on air, water
+// or wall is a no-op rather than turning the jar's air into sand.
+function recolourAt(p, x, y) {
+    const from = p.state.from, { SAND_BASE, SAND_COUNT } = p.sand.materials;
+    const isTint = from >= SAND_BASE && from < SAND_BASE + SAND_COUNT;
+    if (isTint && from !== p.tint) p.sim.replace(from, p.tint, x, y, p.opt);
 }
 
 export const TOOL_BY_ID = Object.fromEntries(TOOLS.map((t) => [t.id, t]));

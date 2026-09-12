@@ -50,7 +50,7 @@ for (const t of TOOLS) if (t.option) opts[t.id] = t.option.value;
 
 // One finger. A second pointer while the first is down is ignored rather
 // than fought over; multi-touch is not a feature here.
-const pointer = { active: false, id: null, x: 0, y: 0, lx: 0, ly: 0 };
+const pointer = { active: false, id: null, x: 0, y: 0, lx: 0, ly: 0, state: {} };   // state: per-stroke scratch
 const jitter = Arcade.rng('sand-art:jitter');
 
 let settings = { theme: 'dark', powerSaver: false };
@@ -113,7 +113,7 @@ function wake() { if (!looping) { looping = true; acc = 0; loop.start(); } }
 function rest() { if (looping) { looping = false; loop.stop(); } }
 
 function toolArgs() {
-    return { sim, sand, tint, rng: jitter, x: pointer.x, y: pointer.y, lx: pointer.lx, ly: pointer.ly, opt: opts[tool.id] };
+    return { sim, sand, tint, rng: jitter, x: pointer.x, y: pointer.y, lx: pointer.lx, ly: pointer.ly, opt: opts[tool.id], state: pointer.state };
 }
 
 const loop = Arcade.loop((deltaMs) => {
@@ -248,6 +248,7 @@ function buildUi() {
         const c = toCell(e);
         pointer.active = true; pointer.id = e.pointerId;
         pointer.x = pointer.lx = c.x; pointer.y = pointer.ly = c.y;
+        pointer.state = {};
         markDirty();
         wake();
         if (tool.down) tool.down(toolArgs());
@@ -305,7 +306,7 @@ async function boot() {
     // The saved picture comes back after the first frame, not before it: a
     // bridged store waits on the launcher, and an empty jar on screen beats
     // a blank one while it answers.
-    if (await pictures.restore(sim, sand)) {
+    if (await pictures.restore(sim)) {
         wake();
         Arcade.ui.toast('Your jar is where you left it', { kind: 'info' });
     }
@@ -323,7 +324,7 @@ async function boot() {
     Arcade.onStateReplaced(async () => {
         // A save import replaced the picture under us: repaint from the store.
         sim.clear();
-        await pictures.restore(sim, sand);
+        await pictures.restore(sim);
         wake();
     });
 

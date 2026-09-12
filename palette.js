@@ -9,8 +9,9 @@
  * good ochre and it is also what SAND (id 1) looks like, so a picture drawn
  * with either id matches.
  *
- * setPalette() repaints the whole framebuffer per call (O(cells) — R11), so
- * this runs at boot and on a theme change, never per frame.
+ * setPalette() repaints the whole framebuffer (O(cells) — R11); the batch
+ * form does it once for all entries. This runs at boot and on a theme
+ * change, never per frame.
  */
 
 // [name, r, g, b] for tints 1..15; tint 0 stays the kernel default.
@@ -43,13 +44,16 @@ const GROUND = {
 
 export function applyPalette(sim, sand, theme) {
     const g = GROUND[theme] || GROUND.dark;
-    sim.setPalette(sand.materials.EMPTY, g.empty[0], g.empty[1], g.empty[2]);
-    sim.setPalette(sand.materials.WALL, g.wall[0], g.wall[1], g.wall[2]);
+    const entries = [
+        [sand.materials.EMPTY, ...g.empty],
+        [sand.materials.WALL, ...g.wall],
+    ];
     // Tint 0 is deliberately skipped (see the header); 1.. are ours.
     for (let t = 1; t < SWATCHES.length; t++) {
         const [, r, g2, b] = SWATCHES[t];
-        sim.setPalette(sand.tint(t), r, g2, b);
+        entries.push([sand.tint(t), r, g2, b]);
     }
+    sim.setPalette(entries);                     // the batch form: one repaint
 }
 
 export function swatchCss(t) {

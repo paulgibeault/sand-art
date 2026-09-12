@@ -7,11 +7,9 @@
  * raw Uint8Array would round-trip through IndexedDB fine and then come out of
  * an export as `{"0":16,"1":16,…}`; base64 is the honest encoding.
  *
- * Restoring paints cell by cell: the kernel exposes `grid` read-only (a
- * direct write would skip the framebuffer and the chunk tracking) and has no
- * bulk load, so the only correct way back in is paint(m, x, y, 0) per
- * non-empty cell. Tens of thousands of calls, a few milliseconds — fine for
- * boot, and worth a kernel `load()` one day.
+ * Restoring is one sim.load(bytes): the kernel validates the length and every
+ * material id before it writes a byte, marks every chunk active and repaints,
+ * so a corrupt record leaves the jar untouched rather than half-restored.
  */
 
 const KEY = 'current';
@@ -38,24 +36,14 @@ export function openPictureStore() {
         async save(sim) {
             await store.set(KEY, { v: VERSION, w: sim.width, h: sim.height, grid: toBase64(sim.grid) });
         },
-        // Resolves true when a picture was painted back in.
-        async restore(sim, sand) {
+        // Resolves true when a picture was loaded back in.
+        async restore(sim) {
             let rec;
             try { rec = await store.get(KEY); } catch (e) { return false; }
             if (!rec || rec.v !== VERSION || rec.w !== sim.width || rec.h !== sim.height) return false;
             let grid;
             try { grid = fromBase64(rec.grid); } catch (e) { return false; }
-            if (grid.length !== sim.width * sim.height) return false;
-            // A corrupt record must not throw halfway through (paint rejects
-            // ids the kernel does not know), so unknown ids are skipped.
-            const { EMPTY, WALL, SAND_BASE, SAND_COUNT } = sand.materials;
-            const known = (m) => m <= WALL || (m >= SAND_BASE && m < SAND_BASE + SAND_COUNT);
-            for (let i = 0, y = 0; y < sim.height; y++) {
-                for (let x = 0; x < sim.width; x++, i++) {
-                    const m = grid[i];
-                    if (m !== EMPTY && known(m)) sim.paint(m, x, y, 0);
-                }
-            }
+            try { sim.load(grid); } catch (e) { return false; }   // RangeError: bad length or id
             return true;
         },
         async forget() {
