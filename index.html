@@ -22,7 +22,11 @@
     <header class="top">
       <h1>Sand Art</h1>
       <span class="status" id="status" aria-live="polite"></span>
-      <button id="clear" class="ghost" type="button">Empty jar</button>
+      <div class="actions">
+        <button id="photo" class="ghost" type="button" title="Put a picture behind the jar">Picture</button>
+        <button id="gallery" class="ghost" type="button" title="Your saved jars">Gallery</button>
+        <button id="clear" class="ghost" type="button" title="Empty this jar">Empty</button>
+      </div>
     </header>
 
     <!-- The jar. The canvas is sized by JS to the largest 3:5 box that fits
@@ -38,6 +42,16 @@
          beside it in landscape (style.css). The palette and toolbar are
          strips that scroll sideways when the row is too narrow for them. -->
     <div class="controls">
+      <!-- The picture behind the jar: how strong it shows, whether it shows,
+           the landing overlay, and taking it away. Hidden without one. -->
+      <div class="picture" id="picture" hidden>
+        <label for="opacity"><span>Picture</span></label>
+        <input id="opacity" type="range" min="10" max="100" step="5" value="60" aria-label="Picture strength">
+        <button id="show-picture" class="ghost small toggle" type="button" aria-pressed="true">Hide</button>
+        <button id="landing" class="ghost small toggle" type="button" aria-pressed="false" title="Show where sand can land right now">Landing</button>
+        <button id="remove-picture" class="ghost small" type="button">Remove</button>
+      </div>
+
       <!-- One option per tool (flow, radius). Hidden when the tool has none. -->
       <div class="options" id="options" hidden>
         <label for="option"><span id="option-label">Flow</span></label>
@@ -51,6 +65,8 @@
     </div>
   </main>
 
+  <!-- The two sheets (the picture fit, the gallery) are built by JS when
+       opened: importer.js and gallery-ui.js. -->
   <script type="module" src="main.js"></script>
 
   <!-- Service worker for offline standalone visits, loopback-guarded so dev

@@ -7,9 +7,11 @@
  *   move(p)   the finger moved a cell     — strokes, sticks
  *   frame(p)  once per sim step while held — sources (pour, sprinkle, water)
  *
- * p = { sim, sand, tint, rng, x, y, lx, ly, opt, state } in CELL units: x,y
- * where the finger is now, lx,ly where it was at the previous move, opt the
- * tool's slider value, state a scratch object that lives for one stroke. The hooks call the kernel and nothing else — no DOM, no
+ * p = { sim, sand, tint, rng, x, y, lx, ly, opt, state, template } in CELL
+ * units: x,y where the finger is now, lx,ly where it was at the previous
+ * move, opt the tool's slider value, state a scratch object that lives for
+ * one stroke, template the picture behind the jar as one material id per
+ * cell (or null). The hooks call the kernel and nothing else — no DOM, no
  * timing — so a recorded (tool, pointer) script replays exactly, which is the
  * property the kernel exists for.
  *
@@ -94,6 +96,20 @@ export const TOOLS = [
         ...stroke((p) => p.tint),
     },
     {
+        id: 'match', label: 'Match',
+        hint: 'Paint in the colour of the settled sand under your finger',
+        option: { label: 'Size', min: 1, max: 8, value: 3 },
+        down(p) { matchAt(p, p.x, p.y); },
+        move(p) { alongStroke(p.lx, p.ly, p.x, p.y, (x, y) => matchAt(p, x, y)); },
+    },
+    {
+        id: 'trace', label: 'Trace',
+        hint: 'Paint the picture\u2019s colours where you touch',
+        option: { label: 'Size', min: 0, max: 8, value: 3 },
+        down(p) { traceAt(p, p.x, p.y); },
+        move(p) { alongStroke(p.lx, p.ly, p.x, p.y, (x, y) => traceAt(p, x, y)); },
+    },
+    {
         id: 'wall', label: 'Wall',
         hint: 'Draw a divider or a stencil the sand piles against',
         option: { label: 'Size', min: 0, max: 5, value: 1 },
@@ -152,6 +168,60 @@ export const TOOLS = [
         },
     },
 ];
+
+// The settled grain under (x, y): walk down the column past air, water and
+// anything still falling, and answer the first grain that has something
+// under it (a grain, a wall or the floor). null when a wall is reached first
+// or the column is empty to the floor. A cell painted in mid-air a moment ago
+// is skipped like any other falling grain, which is what lets the brush keep
+// matching the pile rather than its own fresh stroke.
+export function settledTintBelow(sim, x, y, materials) {
+    const { EMPTY, WATER, WALL, SAND, SAND_BASE, SAND_COUNT } = materials;
+    const isSand = (m) => m === SAND || (m >= SAND_BASE && m < SAND_BASE + SAND_COUNT);
+    for (let yy = y; yy < sim.height; yy++) {
+        const m = sim.get(x, yy);
+        if (m === EMPTY || m === WATER) continue;
+        if (!isSand(m)) return null;                                  // a wall, or something new
+        const under = yy + 1 < sim.height ? sim.get(x, yy + 1) : WALL;   // the floor holds like a wall
+        if (under === EMPTY || under === WATER) continue;             // falling: look further down
+        return m;
+    }
+    return null;
+}
+
+// Every cell within r of (x, y), on the grid.
+function forDisc(sim, x, y, r, fn) {
+    const rr = r * r;
+    for (let dy = -r; dy <= r; dy++) {
+        const yy = y + dy;
+        if (yy < 0 || yy >= sim.height) continue;
+        for (let dx = -r; dx <= r; dx++) {
+            const xx = x + dx;
+            if (xx < 0 || xx >= sim.width || dx * dx + dy * dy > rr) continue;
+            fn(xx, yy);
+        }
+    }
+}
+
+// Match: a brush whose colour is whatever settled grain is under the
+// finger, sampled again at every cell of the stroke. Over a bare column it
+// paints nothing — there is no colour to match.
+function matchAt(p, x, y) {
+    const m = settledTintBelow(p.sim, x, y, p.sand.materials);
+    if (m !== null) p.sim.paint(m, x, y, p.opt);
+}
+
+// Trace: paint each cell of the disc in the picture's colour for that cell
+// (p.template: one material id per cell, 0 where the picture has none).
+// Without a picture the tool does nothing.
+function traceAt(p, x, y) {
+    const t = p.template;
+    if (!t) return;
+    forDisc(p.sim, x, y, p.opt, (xx, yy) => {
+        const m = t[yy * p.sim.width + xx];
+        if (m) p.sim.paint(m, xx, yy, 0);
+    });
+}
 
 // A stencil stroke: every `from` cell in the disc along the path becomes
 // `to` (sim.replace, R16) — nothing else in the disc is touched.

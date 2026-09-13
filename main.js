@@ -18,11 +18,23 @@
  *     wasm memory grows — see the kernel wrapper's header).
  *   • Persistence goes through Arcade.store (persist.js) and small prefs
  *     through Arcade.state; nothing here touches localStorage (§9).
+ *
+ * A jar can have a picture behind it (importer.js): the framebuffer's air
+ * is made transparent and the picture is drawn under it, one pixel per
+ * cell, as a template to build towards. The Trace tool paints the picture's
+ * colours, Match paints whatever settled sand is under the finger, and the
+ * landing overlay (hints.js) shows where a grain can rest right now. Every
+ * jar is a record in the gallery (persist.js, gallery-ui.js); the open one
+ * saves itself as it settles.
  */
 
 import { TOOLS, TOOL_BY_ID } from './tools.js';
-import { SWATCHES, applyPalette, swatchCss } from './palette.js';
-import { openPictureStore } from './persist.js';
+import { SWATCHES, EXTRA_BASE, EXTRA_COUNT, applyPalette, swatchCss, groundCss } from './palette.js';
+import { openGallery, newId } from './persist.js';
+import { importPicture } from './importer.js';
+import { openGallerySheet } from './gallery-ui.js';
+import { landingMask } from './hints.js';
+import { mapToColours, NONE } from './template.js';
 
 // 192×320 is chunk-aligned (12×20 of the kernel's 16×16 chunks) and small
 // enough that a full-grid step is well under a millisecond on a phone; the
@@ -32,12 +44,14 @@ const W = 192, H = 320;
 const FIXED_MS = 1000 / 60;
 const MAX_STEPS_PER_FRAME = 3;      // a stalled tab catches up a little, not all at once
 const SAVE_DEBOUNCE_MS = 3000;
+const THUMB_W = 48, THUMB_H = 80;
 
 const $ = (id) => document.getElementById(id);
 const els = {
     stage: $('stage'), jar: $('jar'), view: $('view'),
-    status: $('status'), clear: $('clear'),
+    status: $('status'), clear: $('clear'), photo: $('photo'), gallery: $('gallery'),
     options: $('options'), option: $('option'), optionLabel: $('option-label'), optionValue: $('option-value'),
+    picture: $('picture'), opacity: $('opacity'), showPicture: $('show-picture'), landing: $('landing'), removePicture: $('remove-picture'),
     palette: $('palette'), toolbar: $('toolbar'),
 };
 
@@ -64,13 +78,51 @@ function pullSettings() {
     };
 }
 
+// ── the open jar ───────────────────────────────────────────────────────────
+// What the gallery record holds besides the grid. `template` is the picture
+// behind the jar: its PNG (kept as given, never re-encoded per save), the
+// drawable, the opacity, and one material id per cell for Trace. `extra`
+// is the colours pulled from it, on the kernel's spare tints.
+let openId = null;
+let openMeta = { name: '', created: 0 };
+let template = null;                             // { png, img, opacity, map } | null
+let showPicture = true;
+let showLanding = false;
+let extra = null;                                // [[r, g, b], …] | null
+
+const swatchColours = SWATCHES.map(([, r, g, b]) => [r, g, b]);
+const materialFor = (i) => sand.tint(i < SWATCHES.length ? i : EXTRA_BASE + (i - SWATCHES.length));
+
+// The colour a sand material is drawn in, from our own tables (the kernel
+// keeps its palette to itself). null for anything that is not sand.
+function colourOf(m) {
+    const { SAND, SAND_BASE } = sand.materials;
+    if (m === SAND) return swatchColours[0];
+    const t = m - SAND_BASE;
+    if (t >= 0 && t < SWATCHES.length) return swatchColours[t];
+    if (extra && t >= EXTRA_BASE && t - EXTRA_BASE < extra.length) return extra[t - EXTRA_BASE];
+    return null;
+}
+
+function repalette() {
+    applyPalette(sim, sand, settings.theme, { extra, clearEmpty: !!(template && showPicture) });
+}
+
 // ── rendering ──────────────────────────────────────────────────────────────
 // The framebuffer goes onto an offscreen canvas of the grid's size, then is
 // drawn scaled with smoothing off, so every cell is a crisp square of
-// display pixels and the picture reads as grains rather than a blur.
+// display pixels and the picture reads as grains rather than a blur. With a
+// picture behind the jar the air is transparent (palette.js) and the picture
+// goes down first, so the framebuffer is still the only thing the sand is
+// ever drawn through — no per-cell compositing here.
 const off = document.createElement('canvas');
 off.width = W; off.height = H;
 const offCtx = off.getContext('2d');
+const hint = document.createElement('canvas');
+hint.width = W; hint.height = H;
+const hintCtx = hint.getContext('2d');
+const hintImg = new ImageData(W, H);
+let mask = new Uint8Array(W * H);
 const viewCtx = els.view.getContext('2d', { alpha: false });
 let img = null;
 
@@ -78,8 +130,45 @@ function blit() {
     const px = sim.pixels;                       // re-read: the view may have been replaced
     if (!img || img.data !== px) img = new ImageData(px, W, H);
     offCtx.putImageData(img, 0, 0);
+    const vw = els.view.width, vh = els.view.height;
     viewCtx.imageSmoothingEnabled = false;
-    viewCtx.drawImage(off, 0, 0, els.view.width, els.view.height);
+    if (template && showPicture) {
+        viewCtx.fillStyle = groundCss(settings.theme);
+        viewCtx.fillRect(0, 0, vw, vh);
+        viewCtx.globalAlpha = template.opacity;
+        viewCtx.drawImage(template.img, 0, 0, vw, vh);
+        viewCtx.globalAlpha = 1;
+    }
+    viewCtx.drawImage(off, 0, 0, vw, vh);
+    if (showLanding) {
+        drawLanding();
+        viewCtx.drawImage(hint, 0, 0, vw, vh);
+    }
+}
+
+// The landing overlay: every cell a grain could rest on right now, in the
+// picture's colour for that cell when there is a picture (so the strip
+// reads as "lay this here next"), with a contrasting mark in the cell
+// above it so the strip stands out from the ghosted picture in either
+// theme and is visible at two device pixels per cell.
+function drawLanding() {
+    mask = landingMask(sim.grid, W, H, sand.materials, mask);
+    const d = hintImg.data;
+    d.fill(0);
+    const map = template && template.map;
+    const mk = settings.theme === 'light' ? [40, 30, 20] : [255, 255, 255];
+    for (let i = 0; i < mask.length; i++) {
+        if (!mask[i]) continue;
+        const m = map ? map[i] : 0;
+        const c = (m && colourOf(m)) || mk;
+        const o = i * 4;
+        d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 235;
+        if (i >= W) {
+            const u = (i - W) * 4;
+            d[u] = mk[0]; d[u + 1] = mk[1]; d[u + 2] = mk[2]; d[u + 3] = 130;
+        }
+    }
+    hintCtx.putImageData(hintImg, 0, 0);
 }
 
 // The largest 3:5 box that fits inside the stage's padding, in CSS px; the
@@ -145,7 +234,8 @@ function wake() { if (!looping) { looping = true; acc = 0; loop.start(); } }
 function rest() { if (looping) { looping = false; loop.stop(); } }
 
 function toolArgs() {
-    return { sim, sand, tint, rng: jitter, x: pointer.x, y: pointer.y, lx: pointer.lx, ly: pointer.ly, opt: opts[tool.id], state: pointer.state };
+    return { sim, sand, tint, rng: jitter, x: pointer.x, y: pointer.y, lx: pointer.lx, ly: pointer.ly,
+        opt: opts[tool.id], state: pointer.state, template: template ? template.map : null };
 }
 
 const loop = Arcade.loop((deltaMs) => {
@@ -175,7 +265,7 @@ const loop = Arcade.loop((deltaMs) => {
 });
 
 // ── persistence ────────────────────────────────────────────────────────────
-const pictures = openPictureStore();
+const gallery = openGallery();
 let dirty = false;
 let saving = false;
 let saveTimer = null;
@@ -187,17 +277,117 @@ function markDirty() {
     }
 }
 
+// A small render of the sand on the theme's ground, for the gallery list.
+// JPEG: a few KB, and the record travels in the launcher's save bundle.
+function makeThumb() {
+    const c = document.createElement('canvas');
+    c.width = THUMB_W; c.height = THUMB_H;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = groundCss(settings.theme);
+    ctx.fillRect(0, 0, THUMB_W, THUMB_H);
+    if (template) { ctx.globalAlpha = 0.35; ctx.drawImage(template.img, 0, 0, THUMB_W, THUMB_H); ctx.globalAlpha = 1; }
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(off, 0, 0, THUMB_W, THUMB_H);
+    return c.toDataURL('image/jpeg', 0.7);
+}
+
 async function flushSave() {
     if (saving || !dirty) return;
     saving = true;
     dirty = false;                               // a change during the write re-dirties
-    try { await pictures.save(sim); }
+    try {
+        if (!openId) openId = newId();
+        const rec = await gallery.save(sim, {
+            id: openId, name: openMeta.name, created: openMeta.created,
+            thumb: makeThumb(),
+            template: template ? { png: template.png, opacity: template.opacity } : null,
+            palette: extra,
+        });
+        openMeta.created = rec.created;
+        Arcade.state.set('open', openId);
+    }
     catch (e) { dirty = true; console.warn('sand-art: save failed', e); }
     finally { saving = false; }
 }
 
 function savePrefs() {
-    Arcade.state.set('prefs', { tool: tool.id, tint, opts });
+    Arcade.state.set('prefs', { tool: tool.id, tint, opts, showLanding });
+}
+
+// Decode a record's picture back to a drawable and the Trace map. The map
+// is recomputed rather than stored: it is a pure function of the PNG and
+// the palette, and 60 KB the record does not need to carry.
+function pictureFromPng(png) {
+    return new Promise((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = W; c.height = H;
+            const ctx = c.getContext('2d');
+            ctx.drawImage(im, 0, 0, W, H);
+            resolve(c);
+        };
+        im.onerror = () => reject(new Error('picture'));
+        im.src = png;
+    });
+}
+function mapFor(canvas, colours) {
+    const rgba = canvas.getContext('2d').getImageData(0, 0, W, H).data;
+    const mapped = mapToColours(rgba, swatchColours.concat(colours || []));
+    const map = new Uint8Array(W * H);
+    for (let i = 0; i < map.length; i++) map[i] = mapped[i] === NONE ? 0 : materialFor(mapped[i]);
+    return map;
+}
+
+async function setTemplate(next, colours) {
+    template = next;
+    extra = colours && colours.length ? colours : null;
+    els.picture.hidden = !template;
+    if (template) {
+        els.opacity.value = String(Math.round(template.opacity * 100));
+        els.showPicture.setAttribute('aria-pressed', showPicture ? 'true' : 'false');
+        els.showPicture.textContent = showPicture ? 'Hide' : 'Show';
+    }
+    buildPalette();
+    pickTint(tint - sand.materials.SAND_BASE);
+    repalette();
+    pickTool(tool.id);                           // Trace's hint depends on there being a picture
+    loop.kick();
+}
+
+// Bring a gallery record into the jar. Resolves false when the record was
+// unusable; the jar is then left as it was.
+async function openRecord(rec) {
+    if (!gallery.restore(sim, rec)) return false;
+    let next = null;
+    if (rec.template && typeof rec.template.png === 'string') {
+        try {
+            const im = await pictureFromPng(rec.template.png);
+            next = { png: rec.template.png, img: im, opacity: clamp01(rec.template.opacity, 0.6), map: mapFor(im, rec.palette) };
+        } catch (e) { next = null; }
+    }
+    openId = rec.id;
+    openMeta = { name: rec.name || '', created: rec.created || 0 };
+    dirty = false;
+    Arcade.state.set('open', openId);
+    await setTemplate(next, rec.palette);
+    wake();
+    return true;
+}
+function clamp01(v, d) { return typeof v === 'number' && v >= 0 && v <= 1 ? v : d; }
+
+// An empty jar with no picture. Nothing is written until something happens
+// in it, so an unused new jar never clutters the gallery.
+async function freshJar() {
+    if (dirty) await flushSave();
+    sim.clear();
+    openId = newId();
+    const n = (await gallery.list()).length + 1;
+    openMeta = { name: 'Jar ' + n, created: 0 };
+    dirty = false;
+    Arcade.state.set('open', openId);
+    await setTemplate(null, null);
+    wake();
 }
 
 // ── UI ─────────────────────────────────────────────────────────────────────
@@ -209,7 +399,7 @@ function pickTool(id) {
         b.setAttribute('aria-checked', on ? 'true' : 'false');
         if (on) reveal(els.toolbar, b);
     }
-    els.status.textContent = tool.hint;
+    els.status.textContent = (tool.id === 'trace' && !template) ? 'Trace needs a picture: tap Picture to add one' : tool.hint;
     const o = tool.option;
     els.options.hidden = !o;
     if (o) {
@@ -221,6 +411,8 @@ function pickTool(id) {
 }
 
 function pickTint(t) {
+    const count = SWATCHES.length + (extra ? extra.length : 0);
+    if (t < 0 || t >= count || (t >= SWATCHES.length && !extra)) t = 1;   // a picture colour after its picture went
     tint = sand.tint(t);
     for (const b of els.palette.children) {
         const on = Number(b.dataset.t) === t;
@@ -228,6 +420,46 @@ function pickTint(t) {
         b.setAttribute('aria-checked', on ? 'true' : 'false');
         if (on) reveal(els.palette, b);
     }
+}
+
+function swatch(t, name, css, cls) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'swatch' + (cls ? ' ' + cls : '');
+    b.dataset.t = String(t);
+    b.setAttribute('role', 'radio');
+    b.setAttribute('aria-label', name);
+    b.title = name;
+    b.style.setProperty('--c', css);
+    b.addEventListener('click', () => { pickTint(t); savePrefs(); });
+    return b;
+}
+
+// The curated swatches, then the picture's own colours when there is one.
+function buildPalette() {
+    els.palette.replaceChildren();
+    SWATCHES.forEach(([name], t) => els.palette.appendChild(swatch(t, name, swatchCss(t))));
+    if (extra) {
+        extra.slice(0, EXTRA_COUNT).forEach((c, i) => {
+            els.palette.appendChild(swatch(EXTRA_BASE + i, 'Picture colour ' + (i + 1), `rgb(${c[0]} ${c[1]} ${c[2]})`, 'extra'));
+        });
+    }
+}
+
+function setLanding(on) {
+    showLanding = on;
+    els.landing.setAttribute('aria-pressed', on ? 'true' : 'false');
+    els.landing.classList.toggle('on', on);
+    if (sim) blit();
+}
+
+async function addPicture(file) {
+    const r = await importPicture({ w: W, h: H, colours: swatchColours, materialFor, file, opacity: template ? template.opacity : 0.6 });
+    if (!r) return;
+    await setTemplate({ png: r.png, img: r.canvas, opacity: r.opacity, map: r.map }, r.extracted);
+    markDirty();
+    if (!showPicture) { showPicture = true; await setTemplate(template, extra); }
+    Arcade.ui.toast('Picture set behind the jar', { kind: 'info' });
 }
 
 function buildUi() {
@@ -242,18 +474,7 @@ function buildUi() {
         b.addEventListener('click', () => { pickTool(t.id); savePrefs(); });
         els.toolbar.appendChild(b);
     }
-    SWATCHES.forEach(([name], t) => {
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'swatch';
-        b.dataset.t = String(t);
-        b.setAttribute('role', 'radio');
-        b.setAttribute('aria-label', name);
-        b.title = name;
-        b.style.setProperty('--c', swatchCss(t));
-        b.addEventListener('click', () => { pickTint(t); savePrefs(); });
-        els.palette.appendChild(b);
-    });
+    buildPalette();
     els.option.addEventListener('input', () => {
         opts[tool.id] = Number(els.option.value);
         els.optionValue.textContent = els.option.value;
@@ -264,12 +485,56 @@ function buildUi() {
         // Native confirm is a no-op inside the launcher's sandbox; the SDK
         // renders a real dialog framed and falls back to window.confirm
         // standalone (§7).
-        const sure = await Arcade.ui.confirm('Empty the jar? The picture is gone for good.', { okLabel: 'Empty', cancelLabel: 'Keep' });
+        const sure = await Arcade.ui.confirm('Empty the jar? The sand is gone for good.', { okLabel: 'Empty', cancelLabel: 'Keep' });
         if (!sure) return;
         sim.clear();
-        dirty = false;
-        pictures.forget().catch(() => { });
+        markDirty();                             // the emptied jar is what the gallery keeps
         loop.kick();
+    });
+
+    // The picture behind the jar.
+    els.photo.addEventListener('click', () => addPicture(null));
+    els.opacity.addEventListener('input', () => {
+        if (!template) return;
+        template.opacity = Number(els.opacity.value) / 100;
+        blit();
+    });
+    els.opacity.addEventListener('change', markDirty);
+    els.showPicture.addEventListener('click', () => {
+        showPicture = !showPicture;
+        setTemplate(template, extra);
+    });
+    els.landing.addEventListener('click', () => { setLanding(!showLanding); savePrefs(); });
+    els.removePicture.addEventListener('click', async () => {
+        const sure = await Arcade.ui.confirm('Take the picture away? The sand stays.', { okLabel: 'Remove', cancelLabel: 'Keep' });
+        if (!sure) return;
+        await setTemplate(null, null);
+        markDirty();
+    });
+
+    // The gallery.
+    els.gallery.addEventListener('click', async () => {
+        if (dirty) await flushSave();
+        await openGallerySheet({
+            openId,
+            actions: {
+                list: () => gallery.list(),
+                open: async (id) => {
+                    const rec = await gallery.get(id);
+                    if (!rec || !(await openRecord(rec))) Arcade.ui.toast('That jar could not be opened', { kind: 'error' });
+                },
+                fresh: freshJar,
+                rename: async (id, name) => {
+                    await gallery.rename(id, name);
+                    if (id === openId) openMeta.name = name;
+                },
+                duplicate: async (id) => { await gallery.duplicate(id); Arcade.ui.toast('Copied', { kind: 'info' }); },
+                remove: async (id) => {
+                    await gallery.remove(id);
+                    if (id === openId) await freshJar();
+                },
+            },
+        });
     });
 
     // Pointer → cells. touch-action:none is set in CSS so the browser never
@@ -325,7 +590,7 @@ async function boot() {
     // so a saved picture and its replay would agree. Not a daily — a jar is
     // a jar every day.
     sim = await sand.create({ width: W, height: H, seed: 'sand-art' });
-    applyPalette(sim, sand, settings.theme);
+    repalette();
 
     const prefs = Arcade.state.get('prefs');
     if (prefs && typeof prefs === 'object') {
@@ -334,25 +599,34 @@ async function boot() {
     }
     buildUi();
     pickTool(prefs && prefs.tool);
-    pickTint(Math.max(0, Math.min(SWATCHES.length - 1, tint - sand.materials.SAND_BASE)));
+    pickTint(tint - sand.materials.SAND_BASE);
+    setLanding(!!(prefs && prefs.showLanding));
 
     fit();
     // Every chunk is active before the first step, so quiet() is false until
     // one has run: waking here draws the first frame and then rests itself.
     wake();
 
-    // The saved picture comes back after the first frame, not before it: a
+    // The saved jar comes back after the first frame, not before it: a
     // bridged store waits on the launcher, and an empty jar on screen beats
-    // a blank one while it answers.
-    if (await pictures.restore(sim)) {
-        wake();
+    // a blank one while it answers. A jar from before the gallery is adopted
+    // as its first record.
+    const adopted = await gallery.adoptLegacy();
+    let rec = adopted;
+    if (!rec) {
+        const id = Arcade.state.get('open');
+        if (typeof id === 'string') rec = await gallery.get(id);
+    }
+    if (rec && await openRecord(rec)) {
         Arcade.ui.toast('Your jar is where you left it', { kind: 'info' });
+    } else {
+        await freshJar();
     }
 
     Arcade.onSettingsChange(() => {
         const was = settings.theme;
         pullSettings();
-        if (settings.theme !== was) { applyPalette(sim, sand, settings.theme); loop.kick(); }
+        if (settings.theme !== was) { repalette(); loop.kick(); }
     });
     Arcade.onSuspend(() => {
         pointer.active = false; pointer.id = null;
@@ -360,17 +634,23 @@ async function boot() {
     });
     Arcade.onResume(() => { wake(); });          // rests again on its own if nothing moved
     Arcade.onStateReplaced(async () => {
-        // A save import replaced the picture under us: repaint from the store.
-        sim.clear();
-        await pictures.restore(sim);
-        wake();
+        // A save import replaced the gallery under us: pick the open jar
+        // back up from the store, or start clean if it is gone.
+        const id = Arcade.state.get('open');
+        const r = typeof id === 'string' ? await gallery.get(id) : null;
+        if (!r || !(await openRecord(r))) await freshJar();
     });
 
     // Test hook, dev only: lets the acceptance script see the loop rest
     // without counting rAF ticks (which read 0 whenever the SDK is correctly
-    // suspending the frame, and mislead).
+    // suspending the frame, and mislead), and feed the importer a File
+    // without a picker.
     if (/[?&]dev=1/.test(location.search)) {
-        window.__sandArt = { running: () => looping, sim, pickTool, pickTint, flushSave };
+        window.__sandArt = {
+            running: () => looping, sim, pickTool, pickTint, flushSave,
+            importFile: addPicture, gallery, freshJar, openRecord,
+            template: () => template, extra: () => extra, openId: () => openId, setLanding,
+        };
     }
 }
 

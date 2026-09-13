@@ -37,7 +37,7 @@ test("the pure modules import under node with no Arcade global in sight", async 
     // Everything it imports must stay node-importable, or the suite below
     // stops being able to state a situation to a tool without a browser.
     assert.strictEqual(typeof globalThis.Arcade, "undefined");
-    for (const m of ["../tools.js", "../palette.js", "../persist.js"]) {
+    for (const m of ["../tools.js", "../palette.js", "../persist.js", "../template.js", "../hints.js"]) {
         await assert.doesNotReject(() => import(m), `${m} touches the DOM or the SDK at import time`);
     }
 });
@@ -91,6 +91,7 @@ test("sw.js cleans up only its own caches and never activates unannounced", () =
 
 test("stage.mjs publishes what the page and manifest name, and drops the dev set", () => {
     for (const f of ["index.html", "main.js", "tools.js", "palette.js", "persist.js",
+        "template.js", "hints.js", "importer.js", "gallery-ui.js", "sheet.js",
         "style.css", "manifest.json", "sw.js", "icon.svg", "icon.png"]) {
         assert.ok(tracked.includes(f), `${f} is not tracked`);
         assert.ok(!isDevOnly(f), `${f} would be dropped from the deploy`);
