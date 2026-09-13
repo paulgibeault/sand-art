@@ -34,6 +34,12 @@ export const SWATCHES = [
     ['Pink', 240, 140, 190],
 ];
 
+// The first sixteen tints are the swatches; the kernel's other sixteen are
+// left for the colours pulled from a picture (template.js), applied here
+// with the rest so one call sets the whole palette.
+export const EXTRA_BASE = SWATCHES.length;
+export const EXTRA_COUNT = 32 - EXTRA_BASE;
+
 // The jar's air and its dividers, per theme. A dark ground makes the colours
 // glow; a light one reads like sand on paper. Both are applied through the
 // kernel's palette so the framebuffer IS the picture — no compositing.
@@ -42,10 +48,13 @@ const GROUND = {
     light: { empty: [238, 234, 226], wall: [120, 116, 108] },
 };
 
-export function applyPalette(sim, sand, theme) {
+// `extra` is the picture's colours ([[r, g, b], …], up to EXTRA_COUNT) for
+// tints EXTRA_BASE..; `clearEmpty` makes the air transparent so a picture
+// drawn under the framebuffer shows through (main.js blit()).
+export function applyPalette(sim, sand, theme, { extra = null, clearEmpty = false } = {}) {
     const g = GROUND[theme] || GROUND.dark;
     const entries = [
-        [sand.materials.EMPTY, ...g.empty],
+        [sand.materials.EMPTY, ...g.empty, clearEmpty ? 0 : 255],
         [sand.materials.WALL, ...g.wall],
     ];
     // Tint 0 is deliberately skipped (see the header); 1.. are ours.
@@ -53,7 +62,17 @@ export function applyPalette(sim, sand, theme) {
         const [, r, g2, b] = SWATCHES[t];
         entries.push([sand.tint(t), r, g2, b]);
     }
+    if (extra) {
+        for (let i = 0; i < Math.min(extra.length, EXTRA_COUNT); i++) {
+            entries.push([sand.tint(EXTRA_BASE + i), extra[i][0], extra[i][1], extra[i][2]]);
+        }
+    }
     sim.setPalette(entries);                     // the batch form: one repaint
+}
+
+export function groundCss(theme) {
+    const g = (GROUND[theme] || GROUND.dark).empty;
+    return `rgb(${g[0]} ${g[1]} ${g[2]})`;
 }
 
 export function swatchCss(t) {
