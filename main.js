@@ -24,6 +24,9 @@
  *     through the same view, so the tool lands where the finger is.
  *   • Undo is a snapshot of the grid before every stroke (history.js) and
  *     one sim.load() back; the kernel repaints and re-settles from there.
+ *   • The tool is drawn where it acts (overlay.js, shapes from tools.js):
+ *     under a finger during a stroke, under the mouse on a desktop. Lift
+ *     moves the acting point a little above a finger so the tip shows.
  *
  * A jar can have a picture behind it (importer.js): the framebuffer's air
  * is made transparent and the picture is drawn under it, one pixel per
@@ -46,6 +49,7 @@ import { landingMask } from './hints.js';
 import { mapToColours, NONE, viewRect, zoomAt } from './template.js';
 import { createGestures } from './gestures.js';
 import { createHistory } from './history.js';
+import { drawTool } from './overlay.js';
 
 // 192×320 is chunk-aligned (12×20 of the kernel's 16×16 chunks) and small
 // enough that a full-grid step is well under a millisecond on a phone; the
@@ -62,7 +66,7 @@ const els = {
     stage: $('stage'), jar: $('jar'), view: $('view'),
     status: $('status'), clear: $('clear'), photo: $('photo'), gallery: $('gallery'), fit: $('fit'),
     undo: $('undo'), redo: $('redo'),
-    options: $('options'), option: $('option'), optionLabel: $('option-label'), optionValue: $('option-value'),
+    options: $('options'), opt: $('opt'), option: $('option'), optionLabel: $('option-label'), optionValue: $('option-value'), lift: $('lift'),
     picture: $('picture'), opacity: $('opacity'), showPicture: $('show-picture'), landing: $('landing'), removePicture: $('remove-picture'),
     palette: $('palette'), toolbar: $('toolbar'),
 };
@@ -78,6 +82,12 @@ for (const t of TOOLS) if (t.option) opts[t.id] = t.option.value;
 // scratch in `state`. gestures.js decides when a finger is a stroke and
 // when a pair of them is the view.
 const pointer = { active: false, x: 0, y: 0, lx: 0, ly: 0, state: {} };
+// A mouse over the jar with no button down: the tool is drawn there too.
+let hover = null;                                // { x, y } in cells, or null
+// Lift: the tool acts this far above a finger (CSS px on screen), so the
+// tip is never under the fingertip. A mouse hides nothing and is not lifted.
+let lift = false;
+const LIFT_PX = 44;
 const jitter = Arcade.rng('sand-art:jitter');
 
 let settings = { theme: 'dark', powerSaver: false };
@@ -161,6 +171,8 @@ function blit() {
         drawLanding();
         viewCtx.drawImage(hint, r.x, r.y, r.w, r.h, 0, 0, vw, vh);
     }
+    const at = pointer.active ? pointer : hover;
+    if (at) drawTool(viewCtx, tool.shape(opts[tool.id]), at.x, at.y, r, vw, vh);
 }
 
 // The landing overlay: every cell a grain could rest on right now, in the
@@ -241,7 +253,8 @@ function reveal(el, item) {
 // into a pinch.
 function toWindow(e) {
     const r = els.view.getBoundingClientRect();
-    return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
+    const up = lift && e.pointerType !== 'mouse' ? LIFT_PX / r.height * H : 0;
+    return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H - up };
 }
 
 // ── undo ───────────────────────────────────────────────────────────────────
@@ -386,7 +399,12 @@ async function flushSave() {
 }
 
 function savePrefs() {
-    Arcade.state.set('prefs', { tool: tool.id, tint, opts, showLanding });
+    Arcade.state.set('prefs', { tool: tool.id, tint, opts, showLanding, lift });
+}
+function setLift(on) {
+    lift = on;
+    els.lift.setAttribute('aria-pressed', on ? 'true' : 'false');
+    els.lift.classList.toggle('on', on);
 }
 
 // Decode a record's picture back to a drawable and the Trace map. The map
@@ -510,13 +528,14 @@ function pickTool(id) {
     }
     els.status.textContent = (tool.id === 'trace' && !template) ? 'Trace needs a picture: tap Picture to add one' : tool.hint;
     const o = tool.option;
-    els.options.hidden = !o;
+    els.opt.hidden = !o;
     if (o) {
         els.optionLabel.textContent = o.label;
         els.option.min = o.min; els.option.max = o.max;
         els.option.value = opts[tool.id];
         els.optionValue.textContent = opts[tool.id];
     }
+    if (hover && !looping && sim) blit();       // the drawn tool changes with the tool
 }
 
 function pickTint(t) {
@@ -587,6 +606,7 @@ function buildUi() {
     els.option.addEventListener('input', () => {
         opts[tool.id] = Number(els.option.value);
         els.optionValue.textContent = els.option.value;
+        if (hover && !looping && sim) blit();   // the ring follows the size
     });
     els.option.addEventListener('change', savePrefs);
 
@@ -665,7 +685,14 @@ function buildUi() {
     v.addEventListener('pointermove', (e) => {
         const w = toWindow(e);
         gestures.move(e.pointerId, w.x, w.y);
+        // A mouse shows the tool wherever it is; a finger only while it
+        // strokes (there is nothing to hover with).
+        if (e.pointerType === 'mouse' && !pointer.active) {
+            hover = gestures.toCell(w.x, w.y);
+            if (!looping && sim) blit();
+        }
     });
+    v.addEventListener('pointerleave', () => { if (hover) { hover = null; if (!looping && sim) blit(); } });
     v.addEventListener('pointerup', (e) => gestures.up(e.pointerId, performance.now()));
     v.addEventListener('pointercancel', (e) => gestures.cancel(e.pointerId));
     v.addEventListener('contextmenu', (e) => e.preventDefault());
@@ -683,6 +710,7 @@ function buildUi() {
         }
     }, { passive: false });
     els.fit.addEventListener('click', () => gestures.setView({ scale: 1, x: 0, y: 0 }));
+    els.lift.addEventListener('click', () => { setLift(!lift); savePrefs(); });
     els.undo.addEventListener('click', () => travel(true));
     els.redo.addEventListener('click', () => travel(false));
     document.addEventListener('keydown', (e) => {
@@ -722,6 +750,7 @@ async function boot() {
     pickTool(prefs && prefs.tool);
     pickTint(tint - sand.materials.SAND_BASE);
     setLanding(!!(prefs && prefs.showLanding));
+    setLift(!!(prefs && prefs.lift));
 
     fit();
     // Every chunk is active before the first step, so quiet() is false until

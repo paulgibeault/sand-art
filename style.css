@@ -241,7 +241,7 @@ h1 { grid-area: title; margin: 0; font-size: 1.05rem; font-weight: 600; letter-s
   margin: 0;
 }
 
-/* options row */
+/* options row: the tool's slider, and Lift at the end */
 .options {
   display: flex;
   align-items: center;
@@ -251,6 +251,7 @@ h1 { grid-area: title; margin: 0; font-size: 1.05rem; font-weight: 600; letter-s
   font-size: 0.85rem;
   color: var(--muted);
 }
+.options .opt { display: flex; align-items: center; gap: 0.6rem; flex: 1 1 auto; min-width: 0; }
 .options label { min-width: 3.2rem; }
 .options input[type="range"] {
   flex: 1;
@@ -261,6 +262,7 @@ h1 { grid-area: title; margin: 0; font-size: 1.05rem; font-weight: 600; letter-s
   margin: 0;
 }
 .options output { min-width: 1.6rem; text-align: right; font-variant-numeric: tabular-nums; }
+.options .lift { margin-inline-start: auto; }
 
 /* A strip: one row that scrolls sideways when it must, snapping to items.
  * The JS marks which edges have more behind them (data-more="l"/"r"/"lr")
