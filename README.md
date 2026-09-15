@@ -59,6 +59,7 @@ never deploy.
 | Pour | Sand falls from the top of the jar at your finger's x, with a little seeded jitter | Flow (grains per step) |
 | Sprinkle | Sand appears around the finger | Spread |
 | Funnel | One grain per step, exactly where you point | — |
+| Cup | A tap sets down one measure of sand (a disc of the chosen size) that settles where it lands; Clemens's tin cup on a stick | Measure |
 | Brush | Paints sand cells directly | Size |
 | Match | Paints sand in the colour of the settled grain under the finger, sampled at every cell of the stroke; grains still falling are skipped (`settledTintBelow`) | Size |
 | Trace | Paints each cell in the picture's colour for that cell (the template's tint map); does nothing without a picture | Size |
@@ -68,6 +69,7 @@ never deploy.
 | Erase | Removes anything | Size |
 | Stick | Thin stick (r=1): drag to shove grains, tap to poke | — |
 | Stick+ | Thick stick (r=4): moves a whole pile | — |
+| Needle | Opens a channel one grain wide along its path; the sand above falls into it, so an upper colour is drawn down through the layers below (the Petra needle) | — |
 | Stir | Seeded shuffle under the finger (`sim.stir`) | Size |
 | Water | Pours water; sand sinks through it | Flow |
 
@@ -111,6 +113,16 @@ stroke and under the mouse on a desktop, dark then light so it reads on
 any sand. **Lift**, at the end of the options row, moves the acting
 point a little above a finger so the tip is never under the fingertip;
 it pairs with zoom rather than replacing it, and a mouse is never lifted.
+
+Three tools come straight from the traditions in the Library. The
+**Needle** is Petra's long thin tool pushed down the inside of the glass:
+it opens a channel one grain wide along its path and the sand above
+falls into it, so an upper colour is drawn down through the layers below
+into a spike, a leg, a trunk. No new physics: an erase of radius zero
+and the kernel's own fall. The **Cup** is Clemens's tin cup on a stick:
+a tap sets down one measure that settles where it lands. And the flow
+slider is the chak-pur's rasp: it stays live while a finger pours, so a
+thumb can change the rate mid-stream.
 
 ## A picture behind the jar
 

@@ -10,9 +10,9 @@
       "body": [
         "Andrew Clemens (1857–1894) grew up in McGregor, Iowa, under the Pictured Rocks bluffs, where the sandstone comes in bands of colour. He gathered it, ground and sorted it by shade, and built pictures inside glass drug bottles: geometric bands and diamonds at first, then flowers, steamboats, eagles and flags with shading and lettering.",
         "His tools were homemade: sharpened hickory sticks, a stick with a small tin cup on the end that held about a quarter teaspoon of sand, and bent fish-hook wires to push grains into place. He worked through the bottle's neck, often building the picture upside down and turning the bottle over at the end. Nothing was glued; pressure from the surrounding sand holds every grain where it was set. A complex bottle could take a year.",
-        "Sand Art's Stick and Stick+ are his sharpened sticks and wires, the Funnel is his tin cup, and the Bands jar is built the way his early bottles were: one flat layer on another, with a shape laid into each."
+        "Sand Art's Stick and Stick+ are his sharpened sticks and wires, the Cup is his tin cup (a tap sets down one measure), the Funnel lays a grain at a time, and the Bands jar is built the way his early bottles were: one flat layer on another, with a shape laid into each."
       ],
-      "tools": ["stick", "stick-thick", "funnel", "brush"],
+      "tools": ["stick", "stick-thick", "cup", "funnel", "brush"],
       "sources": [
         { "title": "Andrew Clemens — Wikipedia", "url": "https://en.wikipedia.org/wiki/Andrew_Clemens" },
         { "title": "Andrew Clemens: sand art — Smithsonian American Art Museum", "url": "https://americanart.si.edu/blog/andrew-clemens-sand-art" }
@@ -33,9 +33,9 @@
       "body": [
         "The sandstone around Petra weathers into sand of yellow, pink, red, purple and brown, and since the 1920s people in Wadi Musa, the town at Petra's gate, have been layering it in glass. Khalifa Krishna is credited with starting it, filling bottles left behind by soldiers with the colours of the cliffs. Today it is a living craft: more than a hundred artists work in Petra, Aqaba and Amman, some with natural sand and some with dyed white sand. A small bottle takes about ten minutes; a large one can take eighteen hours.",
         "The method is layers, then shaping. Coloured sand is poured through a funnel, and tilting the bottle while pouring makes a layer slope. Then a long thin metal tool goes down the inside of the glass, dragging an upper colour through the layers below to leave spikes that become camel legs, palm trunks and mountain ridges. Nothing is added afterwards.",
-        "Sand Art's Pour with its flow, the Stick drawn through settled layers, and the Camel jar's poured dunes come straight from Wadi Musa."
+        "Sand Art's Pour with its flow, the Needle drawn down through settled layers so the sand above follows it, the Stick, and the Camel jar's poured dunes come straight from Wadi Musa."
       ],
-      "tools": ["pour", "stick", "stick-thick", "recolour"],
+      "tools": ["needle", "pour", "stick", "stick-thick", "recolour"],
       "sources": [
         { "title": "One of the few remaining sand artists of Jordan — AFAR", "url": "https://www.afar.com/magazine/in-jordan-a-sand-artist-captures-the-regions-geology-and-history" },
         { "title": "Bottled art from Petra — Outlook Traveller", "url": "https://www.outlooktraveller.com/News/bottled-art-from-petra" }
@@ -56,7 +56,7 @@
       "body": [
         "A sand mandala is a Tibetan Buddhist practice: monks lay a geometric picture of coloured sand on a flat table over days or weeks, then dismantle it. The sand was once crushed coloured stone; today it is usually white stone ground fine and dyed. The design is drawn out first, then filled from the centre outward.",
         "The tool is the chak-pur, a narrow metal funnel with ridges along its side. A monk runs a rod across the ridges, and the vibration lets sand trickle from the tip. Faster or slower rasping is the whole control: a steady line, a fine dot, a single grain. When the mandala is complete it is taken apart in a set order, the sand is gathered, and it is poured into moving water. The making, and the letting go, are the point.",
-        "Sand Art's Funnel lays one grain per step where you point, the flow slider on Pour is the rasp, and the Landing overlay shows where the next grains can rest, like the drawn outline the sand is filled into."
+        "Sand Art's Funnel lays one grain per step where you point, the flow slider on Pour is the rasp and stays live while you pour, and the Landing overlay shows where the next grains can rest, like the drawn outline the sand is filled into."
       ],
       "tools": ["funnel", "pour", "brush"],
       "sources": [

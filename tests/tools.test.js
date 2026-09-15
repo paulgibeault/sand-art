@@ -83,6 +83,28 @@ test("sticks shove by a clamped delta and poke upward on a tap", () => {
     assert.deepStrictEqual(sim.calls, [], "no movement, no nudge");
 });
 
+test("the needle opens a one-cell channel along its path and nothing wider", () => {
+    const sim = fakeSim();
+    const t = TOOL_BY_ID.needle;
+    assert.ok(!t.option, "no size: a needle is a needle");
+    t.down(pointer(sim, { x: 40, y: 100 }));
+    assert.deepStrictEqual(sim.calls, [["paint", materials.EMPTY, 40, 100, 0]]);
+    sim.calls.length = 0;
+    t.move(pointer(sim, { lx: 40, ly: 100, x: 40, y: 110 }));
+    assert.strictEqual(sim.calls.length, 10, "one cell per row of the drag");
+    for (const c of sim.calls) { assert.strictEqual(c[1], materials.EMPTY); assert.strictEqual(c[4], 0); }
+    assert.deepStrictEqual(sim.calls.at(-1), ["paint", materials.EMPTY, 40, 110, 0]);
+});
+
+test("the cup sets down one measure per tap and nothing on a drag", () => {
+    const sim = fakeSim();
+    const t = TOOL_BY_ID.cup;
+    t.down(pointer(sim, { opt: 2 }));
+    assert.deepStrictEqual(sim.calls, [["paint", sand.tint(1), 96, 160, 2]]);
+    assert.strictEqual(t.move, undefined, "a drag is not a pour");
+    assert.strictEqual(t.frame, undefined, "holding the cup adds nothing");
+});
+
 test("recolour swaps only the tint under the finger at touch-down, and never air", () => {
     const from = sand.tint(5), to = sand.tint(1);
     const sim = fakeSim({ cell: from });
