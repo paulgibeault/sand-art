@@ -104,6 +104,16 @@ export const TOOLS = [
         frame(p) { p.sim.paint(p.tint, p.x, p.y, 0); },
     },
     {
+        // Andrew Clemens's tin cup on a stick: about a quarter teaspoon of
+        // sand set down at a spot. One measure per tap; it settles where
+        // it lands, so a few taps make a heap and a row of taps a ridge.
+        id: 'cup', label: 'Cup',
+        hint: 'A tap sets down a measure of sand where you point',
+        option: { label: 'Measure', min: 1, max: 4, value: 2 },
+        shape: (opt) => ring(opt),
+        down(p) { p.sim.paint(p.tint, p.x, p.y, p.opt); },
+    },
+    {
         id: 'brush', label: 'Brush',
         hint: 'Paint sand directly',
         option: { label: 'Size', min: 1, max: 8, value: 3 },
@@ -172,6 +182,18 @@ export const TOOLS = [
         hint: 'A thick stick: moves a whole pile at once',
         shape: () => rod(4, 3),
         ...stick(4),
+    },
+    {
+        // The Petra needle: a long thin tool pushed down the inside of the
+        // glass. It opens a channel one grain wide along its path, and the
+        // sand above falls into it, so an upper colour is drawn down
+        // through the layers below — a spike, a camel's leg, a trunk. No
+        // new physics: an erase of radius zero, and the kernel's own fall.
+        id: 'needle', label: 'Needle',
+        hint: 'Draw down through the layers: the sand above follows the needle',
+        shape: () => rod(0, 0.6),
+        down(p) { p.sim.paint(p.sand.materials.EMPTY, p.x, p.y, 0); },
+        move(p) { alongStroke(p.lx, p.ly, p.x, p.y, (x, y) => p.sim.paint(p.sand.materials.EMPTY, x, y, 0)); },
     },
     {
         id: 'stir', label: 'Stir',
