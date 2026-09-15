@@ -101,6 +101,17 @@ removed until a new stroke forks the timeline; both are chips on the
 stage that appear when there is somewhere to go, and Ctrl/Cmd+Z and
 Shift+Z on a keyboard. Undo is for the session; the gallery is for keeps.
 
+The tool is drawn where it acts (`overlay.js`, one shape per tool in
+`tools.js`): a rod from the rim of the jar down to the tip for the
+sticks, the way the real tool looks in a bottle and the way a shove
+reads; a ring the size of the disc for every disc tool; a bracket at the
+rim as wide as the stream for Pour and Water, with a guide down to the
+finger; a crosshair for the Funnel. It shows under a finger during a
+stroke and under the mouse on a desktop, dark then light so it reads on
+any sand. **Lift**, at the end of the options row, moves the acting
+point a little above a finger so the tip is never under the fingertip;
+it pairs with zoom rather than replacing it, and a mouse is never lifted.
+
 ## A picture behind the jar
 
 **Picture** opens a photo from the device (`Arcade.ui.openFile` — sandboxed
@@ -170,6 +181,7 @@ a tab.
 | `main.js` | Boot, the `Arcade.loop` wake/rest loop, pointers → gestures, the blit through the view (picture under, landing overlay over), the open jar, UI wiring. |
 | `gestures.js` | Pure: one finger strokes, two pinch the view; the grace, the double tap, the clamped view. |
 | `history.js` | Pure: the undo stack of grids, bounded, with redo. |
+| `overlay.js` | Pure drawing: the tool's shape on the jar, through the view. |
 | `template.js` | Pure: cover-fit and clamped pan/zoom, median-cut palette pull, nearest-tint mapping. |
 | `importer.js` | The fit sheet: file decode, the crop canvas, fingers, the "As sand" preview. |
 | `hints.js` | Pure: the landing mask. |

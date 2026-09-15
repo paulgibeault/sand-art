@@ -19,7 +19,18 @@
  * stream is untouched by paint(), so jitter here is the host's business. A
  * source that painted the same cell twice in one frame would merge two
  * grains into one, which is why pour spreads over a few rows, not one.
+ *
+ * Every tool also says what it looks like — shape(opt) — so the jar can
+ * draw it under the finger (overlay.js): a rod from the rim to the tip for
+ * the sticks, the way a real tool looks in a bottle and the way the shove
+ * direction reads; a ring the size of the disc for the disc tools; a
+ * bracket at the rim, as wide as the stream, for the pourers.
  */
+
+// The shapes overlay.js knows how to draw, in cell units.
+const rod = (r, width) => ({ kind: 'rod', r, width });     // from the rim down to a tip of radius r
+const ring = (r, dashed = false) => ({ kind: 'ring', r, dashed });
+const rim = (spread) => ({ kind: 'rim', spread });
 
 // Walk the cells on the segment (x0,y0)→(x1,y1) so a fast stroke leaves a
 // solid line instead of dots. Fires at the end point at minimum.
@@ -63,6 +74,7 @@ export const TOOLS = [
         id: 'pour', label: 'Pour',
         hint: 'Sand falls from the top of the jar at your finger',
         option: { label: 'Flow', min: 1, max: 24, value: 8 },
+        shape: (opt) => rim(1 + (opt >> 2)),
         frame(p) {
             // Grains appear in a strip along the rim whose width grows with
             // the flow, so more flow means a wider, denser stream rather
@@ -77,6 +89,7 @@ export const TOOLS = [
         id: 'sprinkle', label: 'Sprinkle',
         hint: 'Sand appears around your finger',
         option: { label: 'Spread', min: 1, max: 3, value: 2 },
+        shape: (opt) => ring(opt * 3, true),
         frame(p) {
             const spread = p.opt * 3;
             for (let i = 0; i < p.opt * 2; i++) {
@@ -87,18 +100,21 @@ export const TOOLS = [
     {
         id: 'funnel', label: 'Funnel',
         hint: 'One grain at a time, exactly where you point',
+        shape: () => ring(0),
         frame(p) { p.sim.paint(p.tint, p.x, p.y, 0); },
     },
     {
         id: 'brush', label: 'Brush',
         hint: 'Paint sand directly',
         option: { label: 'Size', min: 1, max: 8, value: 3 },
+        shape: (opt) => ring(opt),
         ...stroke((p) => p.tint),
     },
     {
         id: 'match', label: 'Match',
         hint: 'Paint in the colour of the settled sand under your finger',
         option: { label: 'Size', min: 1, max: 8, value: 3 },
+        shape: (opt) => ring(opt),
         down(p) { matchAt(p, p.x, p.y); },
         move(p) { alongStroke(p.lx, p.ly, p.x, p.y, (x, y) => matchAt(p, x, y)); },
     },
@@ -106,6 +122,7 @@ export const TOOLS = [
         id: 'trace', label: 'Trace',
         hint: 'Paint the picture\u2019s colours where you touch',
         option: { label: 'Size', min: 0, max: 8, value: 3 },
+        shape: (opt) => ring(opt),
         down(p) { traceAt(p, p.x, p.y); },
         move(p) { alongStroke(p.lx, p.ly, p.x, p.y, (x, y) => traceAt(p, x, y)); },
     },
@@ -113,18 +130,21 @@ export const TOOLS = [
         id: 'wall', label: 'Wall',
         hint: 'Draw a divider or a stencil the sand piles against',
         option: { label: 'Size', min: 0, max: 5, value: 1 },
+        shape: (opt) => ring(opt),
         ...stroke((p) => p.sand.materials.WALL),
     },
     {
         id: 'unwall', label: 'Unwall',
         hint: 'Erase walls only; the sand stays',
         option: { label: 'Size', min: 1, max: 6, value: 2 },
+        shape: (opt) => ring(opt),
         ...stencil((p) => p.sand.materials.WALL, (p) => p.sand.materials.EMPTY),
     },
     {
         id: 'recolour', label: 'Recolour',
         hint: 'Change the colour under your finger to the chosen one',
         option: { label: 'Size', min: 1, max: 8, value: 3 },
+        shape: (opt) => ring(opt),
         // The material under the finger at touch-down is the one that gets
         // replaced for the whole stroke, so dragging across a boundary keeps
         // recolouring the layer you started on, not whatever comes next.
@@ -138,28 +158,33 @@ export const TOOLS = [
         id: 'erase', label: 'Erase',
         hint: 'Take sand out',
         option: { label: 'Size', min: 1, max: 10, value: 4 },
+        shape: (opt) => ring(opt),
         ...stroke((p) => p.sand.materials.EMPTY),
     },
     {
         id: 'stick', label: 'Stick',
         hint: 'A thin stick: drag to shove grains, tap to poke',
+        shape: () => rod(1, 1),
         ...stick(1),
     },
     {
         id: 'stick-thick', label: 'Stick+',
         hint: 'A thick stick: moves a whole pile at once',
+        shape: () => rod(4, 3),
         ...stick(4),
     },
     {
         id: 'stir', label: 'Stir',
         hint: 'Shuffle the grains under your finger',
         option: { label: 'Size', min: 2, max: 10, value: 5 },
+        shape: (opt) => ring(opt, true),
         frame(p) { p.sim.stir(p.x, p.y, p.opt); },
     },
     {
         id: 'water', label: 'Water',
         hint: 'Pour water; sand sinks through it',
         option: { label: 'Flow', min: 1, max: 24, value: 6 },
+        shape: (opt) => rim(1 + (opt >> 2)),
         frame(p) {
             const spread = 1 + (p.opt >> 2);
             for (let i = 0; i < p.opt; i++) {
