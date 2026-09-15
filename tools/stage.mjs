@@ -10,8 +10,10 @@
 // point: a staging rule the tests don't exercise is a rule that goes stale in
 // silence.
 //
-// Sand Art has no build step: index.html, the four modules, style.css, the
-// manifest, sw.js and the two icons are the whole artifact. Both icons ship —
+// Sand Art has no build step: index.html, the modules, style.css, the
+// manifest, sw.js, the two icons and the Library (library.json, the sample
+// jars and their pictures under library/) are the whole artifact — the
+// Library's SOURCES.md is prose and stays behind. Both icons ship —
 // icon.svg is what index.html and manifest.json name, icon.png is the
 // launcher's card art (catalog.json points at /sand-art/icon.png). The kernel
 // (arcade-sim-sand.js/.wasm) is NOT here: it is served by the launcher origin

@@ -30,6 +30,7 @@
   --shelf: #c9a06a;                        /* pale oak */
   --shelf-edge: #a9804d;
   --shelf-shadow: rgba(60, 40, 20, 0.35);
+  --ground: #eeeae2;                       /* the jar's air, as palette.js paints it */
   --tap: 2.75rem;                          /* 44 px at scale 1: every hit target */
 }
 :root[data-theme="dark"] {
@@ -45,6 +46,7 @@
   --shelf: #4a3526;                        /* dark walnut */
   --shelf-edge: #2e2018;
   --shelf-shadow: rgba(0, 0, 0, 0.6);
+  --ground: #12121a;
 }
 
 * { box-sizing: border-box; }
@@ -419,6 +421,66 @@ h1 { grid-area: title; margin: 0; font-size: 1.05rem; font-weight: 600; letter-s
 .name-field { font: inherit; font-weight: 600; padding: 0.2rem 0.4rem; border-radius: 0.4rem; border: 1px solid var(--accent); background: var(--bg); color: var(--fg); min-width: 0; }
 .jar-card .meta { font-size: 0.78rem; color: var(--muted); }
 .jar-card .row { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+
+/* the library: an index of influences, then one entry at a time. The
+ * sample pictures have transparent air, drawn over the theme's ground in
+ * a small jar-shaped frame so they read as jars in either theme. */
+.library .library-scroll { flex: 1 1 auto; min-height: 8rem; overflow-y: auto; }
+.library header { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.6rem; align-items: center; }
+.library header > :only-child { grid-column: 1 / -1; }
+.library header .titles { min-width: 0; }
+.library header .sheet-hint { grid-column: 1 / -1; }
+.library .meta { margin: 0.1rem 0 0; font-size: 0.8rem; color: var(--muted); }
+.jar-pic {
+  display: block;
+  object-fit: cover;
+  image-rendering: pixelated;
+  background: var(--ground);
+  border-radius: 4px 4px 12px 12px;
+  box-shadow: inset 0 0 0 2px var(--glass-edge);
+}
+.jar-pic.small { width: 3rem; height: 5rem; flex: 0 0 auto; }
+.jar-pic.large { width: 7.2rem; height: 12rem; }
+.influences { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.influence {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.75rem;
+  align-items: center;
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 0.9rem;
+  border: none;
+  background: var(--chrome);
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.influence .about { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.influence .name { font-weight: 600; }
+.influence .lead { font-size: 0.85rem; line-height: 1.3; }
+.library article { display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.92rem; line-height: 1.45; }
+.library article p { margin: 0; }
+.library figure { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.75rem; align-items: start; }
+.library figcaption { display: flex; flex-direction: column; gap: 0.4rem; }
+.library figcaption .lead { font-weight: 600; }
+.library h3 { margin: 0.4rem 0 0; font-size: 0.85rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.chip {
+  font: inherit;
+  font-size: 0.85rem;
+  min-height: 2.2rem;
+  padding: 0.25rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--glass-edge);
+  background: var(--chrome);
+  color: var(--fg);
+  cursor: pointer;
+}
+.took .sheet-hint { margin-top: 0.3rem; }
+.sources { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.sources a { color: var(--accent); }
 
 /* ── tablets and anything wide, portrait ─────────────────────────────────
  * Room for every tool and swatch at once: the strips wrap and centre

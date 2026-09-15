@@ -32,6 +32,11 @@ export function fakeSim({ width = 192, height = 320, cell = materials.EMPTY } = 
             calls.push(["load", bytes.length]);
         },
         get: () => cell,
+        // A recipe replay (tools/library-recipes.mjs) steps and waits for
+        // quiet; here nothing moves, so it is quiet at once.
+        step() { calls.push(["step"]); },
+        quiet: () => true,
+        activeCells: () => 0,
     };
 }
 

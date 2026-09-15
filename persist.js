@@ -143,6 +143,17 @@ export function openGallery() {
             await store.del(id);
         },
 
+        // A record from outside the gallery — a sample the app ships — comes
+        // in as a new jar of the player's own, listed as the newest. The
+        // shipped record is never touched, so it can be opened again fresh.
+        async add(rec, name) {
+            if (!isRecord(rec)) return null;
+            const now = Date.now();
+            const copy = { ...rec, id: newId(now), name: String(name || rec.name || 'Jar').trim().slice(0, 60), created: now, updated: now };
+            await store.set(copy.id, copy);
+            return copy;
+        },
+
         // The pre-gallery single record becomes the first creation. Resolves
         // the adopted record, or null when there was nothing to adopt.
         async adoptLegacy() {

@@ -37,7 +37,8 @@ test("the pure modules import under node with no Arcade global in sight", async 
     // Everything it imports must stay node-importable, or the suite below
     // stops being able to state a situation to a tool without a browser.
     assert.strictEqual(typeof globalThis.Arcade, "undefined");
-    for (const m of ["../tools.js", "../palette.js", "../persist.js", "../template.js", "../hints.js"]) {
+    for (const m of ["../tools.js", "../palette.js", "../persist.js", "../template.js", "../hints.js",
+        "../sheet.js", "../gallery-ui.js", "../library-ui.js", "../tools/library-recipes.mjs"]) {
         await assert.doesNotReject(() => import(m), `${m} touches the DOM or the SDK at import time`);
     }
 });
@@ -92,15 +93,38 @@ test("sw.js cleans up only its own caches and never activates unannounced", () =
 test("stage.mjs publishes what the page and manifest name, and drops the dev set", () => {
     for (const f of ["index.html", "main.js", "tools.js", "palette.js", "persist.js",
         "template.js", "hints.js", "importer.js", "gallery-ui.js", "sheet.js",
+        "library-ui.js", "library.json",
         "style.css", "manifest.json", "sw.js", "icon.svg", "icon.png"]) {
         assert.ok(tracked.includes(f), `${f} is not tracked`);
         assert.ok(!isDevOnly(f), `${f} would be dropped from the deploy`);
     }
+    // The Library's jars and pictures ship; its SOURCES.md is prose and stays.
+    const library = tracked.filter((f) => f.startsWith("library/"));
+    assert.ok(library.some((f) => f.startsWith("library/jars/")), "no sample jars are tracked");
+    for (const f of library) {
+        assert.strictEqual(isDevOnly(f), f.endsWith(".md"), `${f}: ${f.endsWith(".md") ? "should stay behind" : "would be dropped from the deploy"}`);
+    }
     for (const f of ["README.md", "package.json", ".gitignore", "tools/stage.mjs",
-        "tests/repo-gates.test.js", ".github/workflows/pages.yml"]) {
+        "tests/repo-gates.test.js", ".github/workflows/pages.yml", "tools/library-build.mjs"]) {
         assert.ok(isDevOnly(f), `${f} would ship to the public site`);
     }
     assert.deepStrictEqual(PRECACHE_EXCLUDE, ["LICENSE"], "the exclusion list is meant to stay minimal");
+});
+
+// ---------------------------------------------------------------------------
+// the Library's pictures
+// ---------------------------------------------------------------------------
+
+test("every picture the Library ships is accounted for in library/SOURCES.md", () => {
+    // The licensing rule for samples (issue #4): a picture ships only with
+    // its origin, author and licence written down beside it.
+    const sources = fs.readFileSync(path.join(ROOT, "library/SOURCES.md"), "utf8");
+    const pictures = tracked.filter((f) => /^library\/.*\.(png|jpe?g|webp|gif|svg)$/i.test(f));
+    assert.ok(pictures.length > 0, "the Library ships no pictures at all");
+    for (const f of pictures) {
+        assert.ok(sources.includes(f.slice("library/".length)), `${f} is not listed in library/SOURCES.md`);
+        assert.ok(fs.statSync(path.join(ROOT, f)).size <= 100 * 1024, `${f} is over 100 KB`);
+    }
 });
 
 /* The two vendored fleet files (GAME_INTEGRATION.md §13a): never edit the
