@@ -1,0 +1,160 @@
+{
+  "about": "Where Sand Art's tools and ideas come from. Each entry has a jar made in its style: open a copy of it, change it, keep it.",
+  "entries": [
+    {
+      "id": "clemens",
+      "title": "Andrew Clemens",
+      "place": "McGregor, Iowa",
+      "period": "1880s",
+      "lead": "Pictures pressed into a bottle grain by grain, with hickory sticks and no glue.",
+      "body": [
+        "Andrew Clemens (1857–1894) grew up in McGregor, Iowa, under the Pictured Rocks bluffs, where the sandstone comes in bands of colour. He gathered it, ground and sorted it by shade, and built pictures inside glass drug bottles: geometric bands and diamonds at first, then flowers, steamboats, eagles and flags with shading and lettering.",
+        "His tools were homemade: sharpened hickory sticks, a stick with a small tin cup on the end that held about a quarter teaspoon of sand, and bent fish-hook wires to push grains into place. He worked through the bottle's neck, often building the picture upside down and turning the bottle over at the end. Nothing was glued; pressure from the surrounding sand holds every grain where it was set. A complex bottle could take a year.",
+        "Sand Art's Stick and Stick+ are his sharpened sticks and wires, the Funnel is his tin cup, and the Bands jar is built the way his early bottles were: one flat layer on another, with a shape laid into each."
+      ],
+      "tools": ["stick", "stick-thick", "funnel", "brush"],
+      "sources": [
+        { "title": "Andrew Clemens — Wikipedia", "url": "https://en.wikipedia.org/wiki/Andrew_Clemens" },
+        { "title": "Andrew Clemens: sand art — Smithsonian American Art Museum", "url": "https://americanart.si.edu/blog/andrew-clemens-sand-art" }
+      ],
+      "image": {
+        "src": "library/clemens.png",
+        "alt": "A jar of flat coloured bands, with diamonds, rings and zigzags laid into them",
+        "caption": "Bands, after Clemens. Made in Sand Art."
+      },
+      "jar": "library/jars/clemens.json"
+    },
+    {
+      "id": "petra",
+      "title": "Petra sand bottles",
+      "place": "Wadi Musa, Jordan",
+      "period": "1920s to today",
+      "lead": "Funnels for brushes, the bottle for a canvas: layered desert sand pulled into camels and hills.",
+      "body": [
+        "The sandstone around Petra weathers into sand of yellow, pink, red, purple and brown, and since the 1920s people in Wadi Musa, the town at Petra's gate, have been layering it in glass. Khalifa Krishna is credited with starting it, filling bottles left behind by soldiers with the colours of the cliffs. Today it is a living craft: more than a hundred artists work in Petra, Aqaba and Amman, some with natural sand and some with dyed white sand. A small bottle takes about ten minutes; a large one can take eighteen hours.",
+        "The method is layers, then shaping. Coloured sand is poured through a funnel, and tilting the bottle while pouring makes a layer slope. Then a long thin metal tool goes down the inside of the glass, dragging an upper colour through the layers below to leave spikes that become camel legs, palm trunks and mountain ridges. Nothing is added afterwards.",
+        "Sand Art's Pour with its flow, the Stick drawn through settled layers, and the Camel jar's poured dunes come straight from Wadi Musa."
+      ],
+      "tools": ["pour", "stick", "stick-thick", "recolour"],
+      "sources": [
+        { "title": "One of the few remaining sand artists of Jordan — AFAR", "url": "https://www.afar.com/magazine/in-jordan-a-sand-artist-captures-the-regions-geology-and-history" },
+        { "title": "Bottled art from Petra — Outlook Traveller", "url": "https://www.outlooktraveller.com/News/bottled-art-from-petra" }
+      ],
+      "image": {
+        "src": "library/petra.png",
+        "alt": "A jar with poured layers of desert colours, dunes, a camel, a palm and hills under a blue sky",
+        "caption": "Camel at Petra. Made in Sand Art."
+      },
+      "jar": "library/jars/petra.json"
+    },
+    {
+      "id": "mandala",
+      "title": "Tibetan sand mandala",
+      "place": "Tibet, and monasteries worldwide",
+      "period": "A tradition of centuries",
+      "lead": "A ridged funnel rasped with a rod lets sand out a few grains at a time; the finished picture is swept away.",
+      "body": [
+        "A sand mandala is a Tibetan Buddhist practice: monks lay a geometric picture of coloured sand on a flat table over days or weeks, then dismantle it. The sand was once crushed coloured stone; today it is usually white stone ground fine and dyed. The design is drawn out first, then filled from the centre outward.",
+        "The tool is the chak-pur, a narrow metal funnel with ridges along its side. A monk runs a rod across the ridges, and the vibration lets sand trickle from the tip. Faster or slower rasping is the whole control: a steady line, a fine dot, a single grain. When the mandala is complete it is taken apart in a set order, the sand is gathered, and it is poured into moving water. The making, and the letting go, are the point.",
+        "Sand Art's Funnel lays one grain per step where you point, the flow slider on Pour is the rasp, and the Landing overlay shows where the next grains can rest, like the drawn outline the sand is filled into."
+      ],
+      "tools": ["funnel", "pour", "brush"],
+      "sources": [
+        { "title": "Sand mandala — Wikipedia", "url": "https://en.wikipedia.org/wiki/Sand_mandala" },
+        { "title": "Chak-pur — Wikipedia", "url": "https://en.wikipedia.org/wiki/Chak-pur" },
+        { "title": "The painstaking tradition of the Tibetan sand mandala — Asia Society", "url": "https://asiasociety.org/blog/asia/video-painstaking-and-mesmerizing-tradition-tibetan-sand-mandala" }
+      ],
+      "image": {
+        "src": "library/mandala.png",
+        "alt": "A jar of dark sand with rings of red, yellow, teal, cream and indigo around a centre, and spokes between them",
+        "caption": "Rings, after a mandala. Made in Sand Art."
+      },
+      "jar": "library/jars/mandala.json"
+    },
+    {
+      "id": "alum-bay",
+      "title": "Alum Bay coloured sands",
+      "place": "Isle of Wight, England",
+      "period": "Victorian to today",
+      "lead": "Twenty-one natural shades from one cliff, layered in glass as a holiday keepsake.",
+      "body": [
+        "At Alum Bay, on the western tip of the Isle of Wight, the cliffs are sand laid down some fifty million years ago and stained by iron in different states, so the strata run in bands of red, yellow, brown, green, grey and white. Guidebooks were describing the sands to visitors by 1844. A gift of layered sand was presented to Queen Victoria in 1860, and the souvenir trade took off: stallholders at the cliff foot helped visitors fill small glass bottles and bells with the colours in stripes, labelled by shade, and the sands were also glued down as pictures, a craft called marmotinto.",
+        "Taking sand from the cliff is now prohibited, but the craft continues at the sand shop by the Needles, where a jar is still filled by hand one colour at a time, tilted to make the layers lean.",
+        "Sand Art's jar is a souvenir jar of this kind, and its earth-tone palette starts from the Alum Bay colours. The Stripes jar is poured the way a visitor would fill one."
+      ],
+      "tools": ["pour", "erase"],
+      "sources": [
+        { "title": "Alum Bay — Wikipedia", "url": "https://en.wikipedia.org/wiki/Alum_Bay" },
+        { "title": "The Sand Shop — The Needles Landmark Attraction", "url": "https://www.theneedles.co.uk/attractions/sand-shop/" }
+      ],
+      "image": {
+        "src": "library/alum-bay.png",
+        "alt": "A jar of leaning stripes in ochre, cream, terracotta, umber, coral, pink and yellow",
+        "caption": "Alum Bay stripes. Made in Sand Art."
+      },
+      "jar": "library/jars/alum-bay.json"
+    },
+    {
+      "id": "navajo",
+      "title": "Navajo sandpainting",
+      "place": "Diné Bikéyah, the American Southwest",
+      "period": "The public form, from the 1950s",
+      "lead": "Sand trickled from between the fingers, in the public, permanent form made for keeping.",
+      "body": [
+        "In Diné (Navajo) tradition a sandpainting is part of a healing ceremony. A hatałii, a singer, lets crushed stone, charcoal, pollen and corn meal run from between his fingers onto the ground to lay the design, and when the ceremony ends, within the day, the painting is destroyed. Those works are sacred and are not reproduced.",
+        "A separate, public form began in the middle of the twentieth century. Fred Stevens Jr., a Diné singer working with a trader, developed a way to fix sand to board so a painting could be kept and sold. Commercial sandpaintings are made for that purpose, and their makers deliberately change or leave out elements so that they are not ceremonial designs. They are the form a visitor sees in galleries and museums, and they are what Sand Art looks to: the touch of the hand and the trickle, not the ceremony.",
+        "Sand Art's Sprinkle scatters grains around your finger the way sand falls from a loose hand, and the Sprinkled bands jar is a geometric pattern made with it."
+      ],
+      "tools": ["sprinkle", "brush"],
+      "sources": [
+        { "title": "Sandpainting — Wikipedia", "url": "https://en.wikipedia.org/wiki/Sandpainting" },
+        { "title": "Sand painting — Encyclopaedia Britannica", "url": "https://www.britannica.com/art/sand-painting" }
+      ],
+      "image": {
+        "src": "library/navajo.png",
+        "alt": "A jar of tan sand with stepped terraces, a diamond, lightning lines and speckled bands in terracotta, charcoal and teal",
+        "caption": "Sprinkled bands. Made in Sand Art."
+      },
+      "jar": "library/jars/navajo.json"
+    },
+    {
+      "id": "bonseki",
+      "title": "Bonseki",
+      "place": "Japan",
+      "period": "From the 7th century",
+      "lead": "White sand and pebbles on a black lacquer tray, shaped with feathers, spoons and sieves.",
+      "body": [
+        "Bonseki is the Japanese art of the tray landscape: white sand, small stones and pebbles arranged on a black lacquered tray to make a mountain, a coast, a garden. The tools are light ones, feathers, small flax brooms, sieves, spoons and wooden wedges, because the sand is moved rather than fixed. The picture is kept for a while, then swept back into the box. Tradition places its beginnings at the court of Emperor Tenmu in the seventh century; the tea master Sen no Rikyū practised it, his student Hosokawa Sansai founded a school, and it flourished among the women of the Edo court before fading after the Meiji era. Schools today teach it as much for the calm of making as for the result.",
+        "Sand Art's dark ground with light sand on it is this tray, the Stir is the feather that softens an edge, and the Funnel draws a fine line the way a spoon does. The Moon jar is a monochrome landscape made that way."
+      ],
+      "tools": ["stir", "funnel", "brush", "erase"],
+      "sources": [
+        { "title": "Bonseki — Wikipedia", "url": "https://en.wikipedia.org/wiki/Bonseki" },
+        { "title": "Bonseki, a traditional Japanese art — Minato UNESCO Association", "url": "https://minato-unesco.jp/en/report/bonseki-a-traditional-japanese-art/" }
+      ],
+      "image": {
+        "src": "library/bonseki.png",
+        "alt": "A jar of dark sand with a cream moon, two outlined mountains, a shore and raked lines of sea",
+        "caption": "Moon over the sea. Made in Sand Art."
+      },
+      "jar": "library/jars/bonseki.json"
+    },
+    {
+      "id": "animation",
+      "title": "Sand animation",
+      "place": "Kseniya Simonova, Ilana Yahav",
+      "period": "2000s",
+      "lead": "Sand on a lit glass table, drawn and wiped away in front of an audience.",
+      "body": [
+        "Sand animation began as a film technique: Caroline Leaf, working at Harvard in 1968, moved sand on a lit glass plate between frames, and Co Hoedeman's The Sand Castle won an Academy Award in 1977. In the 2000s it became a live art. Kseniya Simonova, from Ukraine, won Ukraine's Got Talent in 2009 with an eight-minute story about a couple parted by war, drawn and redrawn in sand on a lightbox with a camera above it. Ilana Yahav, from Israel, has performed the same way for stages and television around the world. A hand sweeps a face away and a landscape appears in its place; the picture only ever exists for a moment.",
+        "Sand Art's Erase is a drawing tool in this sense, taking sand away to reveal the ground, and a jar's picture is likewise never finished: the sand keeps settling. The artists' own sites show the work."
+      ],
+      "tools": ["erase", "brush", "stir"],
+      "sources": [
+        { "title": "Sand animation — Wikipedia", "url": "https://en.wikipedia.org/wiki/Sand_animation" },
+        { "title": "Kseniya Simonova", "url": "https://simonova.tv/" },
+        { "title": "Ilana Yahav, sand artist", "url": "https://www.sandfantasy.com/" }
+      ]
+    }
+  ]
+}

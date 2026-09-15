@@ -25,7 +25,9 @@
  * colours, Match paints whatever settled sand is under the finger, and the
  * landing overlay (hints.js) shows where a grain can rest right now. Every
  * jar is a record in the gallery (persist.js, gallery-ui.js); the open one
- * saves itself as it settles.
+ * saves itself as it settles. Behind the gallery is the Library
+ * (library.json, library-ui.js): where the tools come from, each entry
+ * with a sample jar that copies into the gallery on a tap.
  */
 
 import { TOOLS, TOOL_BY_ID } from './tools.js';
@@ -33,6 +35,7 @@ import { SWATCHES, EXTRA_BASE, EXTRA_COUNT, applyPalette, swatchCss, groundCss }
 import { openGallery, newId } from './persist.js';
 import { importPicture } from './importer.js';
 import { openGallerySheet } from './gallery-ui.js';
+import { openLibrarySheet } from './library-ui.js';
 import { landingMask } from './hints.js';
 import { mapToColours, NONE } from './template.js';
 
@@ -390,6 +393,38 @@ async function freshJar() {
     wake();
 }
 
+// ── the Library ────────────────────────────────────────────────────────────
+// library.json is fetched once, the first time the sheet opens; the sample
+// jars are fetched one at a time when asked for, and come into the gallery
+// as copies (gallery.add) so the shipped record is never the one edited.
+let library = null;
+async function showLibrary() {
+    if (!library) {
+        try { library = await (await fetch('library.json')).json(); }
+        catch (e) { Arcade.ui.toast('The Library could not be opened', { kind: 'error' }); return; }
+    }
+    await openLibrarySheet({
+        library,
+        framed: !!(Arcade.context && Arcade.context.framed),
+        actions: {
+            toolLabel: (id) => (TOOL_BY_ID[id] ? TOOL_BY_ID[id].label : id),
+            pickTool: (id) => { if (TOOL_BY_ID[id]) { pickTool(id); savePrefs(); } },
+            tryJar: async (entry) => {
+                if (dirty) await flushSave();
+                let rec = null;
+                try { rec = await (await fetch(entry.jar)).json(); } catch (e) { rec = null; }
+                const copy = rec && await gallery.add(rec, rec.name);
+                if (!copy || !(await openRecord(copy))) {
+                    Arcade.ui.toast('That jar could not be opened', { kind: 'error' });
+                    return false;
+                }
+                Arcade.ui.toast('\u201c' + copy.name + '\u201d is yours now: it is in the gallery', { kind: 'success' });
+                return true;
+            },
+        },
+    });
+}
+
 // ── UI ─────────────────────────────────────────────────────────────────────
 function pickTool(id) {
     tool = TOOL_BY_ID[id] || TOOL_BY_ID.pour;
@@ -512,10 +547,10 @@ function buildUi() {
         markDirty();
     });
 
-    // The gallery.
+    // The gallery, and the Library behind it.
     els.gallery.addEventListener('click', async () => {
         if (dirty) await flushSave();
-        await openGallerySheet({
+        const r = await openGallerySheet({
             openId,
             actions: {
                 list: () => gallery.list(),
@@ -535,6 +570,7 @@ function buildUi() {
                 },
             },
         });
+        if (r === 'library') await showLibrary();
     });
 
     // Pointer → cells. touch-action:none is set in CSS so the browser never
@@ -650,6 +686,7 @@ async function boot() {
             running: () => looping, sim, pickTool, pickTint, flushSave,
             importFile: addPicture, gallery, freshJar, openRecord,
             template: () => template, extra: () => extra, openId: () => openId, setLanding,
+            showLibrary,
         };
     }
 }

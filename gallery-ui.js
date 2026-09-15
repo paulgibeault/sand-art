@@ -24,7 +24,8 @@ function when(ts) {
 /**
  * Show the gallery. `actions` = { list(), open(id), fresh(), rename(id, name),
  * duplicate(id), remove(id) } — all async, all owned by main.js. Resolves
- * when the sheet closes.
+ * when the sheet closes: 'library' when the player asked for the Library
+ * (main.js opens it in this sheet's place), otherwise true or null.
  */
 export function openGallerySheet({ openId, actions }) {
     return openSheet({
@@ -32,7 +33,7 @@ export function openGallerySheet({ openId, actions }) {
         className: 'gallery',
         async build(body, close) {
             const list = el('ul', { class: 'jars', 'aria-label': 'Saved jars' });
-            const empty = el('p', { class: 'sheet-hint', text: 'Nothing saved yet. The jar saves itself as you work.' });
+            const empty = el('p', { class: 'sheet-hint', text: 'Nothing saved yet. The jar saves itself as you work, and the Library has jars to start from.' });
 
             async function refresh() {
                 const items = await actions.list();
@@ -94,10 +95,13 @@ export function openGallerySheet({ openId, actions }) {
 
             const fresh = el('button', { type: 'button', class: 'primary', text: 'New jar', 'data-autofocus': '', onclick: async () => { await actions.fresh(); close(true); } });
             const done = el('button', { type: 'button', class: 'ghost', text: 'Close', onclick: () => close(null) });
+            // The Library lives behind the gallery: its jars land here, and
+            // the top bar stays three buttons wide on a phone.
+            const library = el('button', { type: 'button', class: 'ghost', text: 'Library', title: 'Where the tools come from, with jars to try', onclick: () => close('library') });
             body.append(
                 el('header', {}, el('h2', { text: 'Your jars' })),
                 el('div', { class: 'jars-scroll' }, empty, list),
-                el('footer', {}, done, fresh),
+                el('footer', {}, done, library, fresh),
             );
             await refresh();
         },

@@ -25,7 +25,7 @@ staging, from a launcher checkout that has `sdk/v3/arcade-sim-sand.js`:
 Re-run `./dev.sh` after editing — it copies the app into `.dev-stage`.
 
 Add `?dev=1` to get `window.__sandArt` (`running()`, `sim`, `pickTool`,
-`pickTint`, `flushSave`) for driving it from a script.
+`pickTint`, `flushSave`, `showLibrary`, …) for driving it from a script.
 
 ## CI / deploy
 
@@ -41,6 +41,10 @@ never deploy.
   every file `index.html` and `manifest.json` name is published and precached,
   then `node --test tests/`.
 - `npm run stage` — writes the deploy artifact to `dist/` (git-ignored).
+- `node tools/library-build.mjs [id …]` — remakes the Library's sample jars
+  from `tools/library-recipes.mjs` on the real kernel (needs a launcher
+  checkout beside this one, or `ARCADE_FLEET_ROOT`, with Playwright
+  installed there).
 - `tools/verify-artifact.mjs` and `tools/inject-precache.mjs` are byte-identical
   fleet copies: never edit them here, re-copy from the launcher.
 - `sw.js`'s precache list is generated at stage time; leave a published file
@@ -106,6 +110,35 @@ open, tap the name to rename in place, **Duplicate**, **Delete**
 (confirmed), **New jar**. A new jar is not written until something happens
 in it. The pre-gallery single record is adopted as "Jar 1" on first boot.
 
+## The library
+
+Sand Art's tools come from real traditions, and the **Library** (behind the
+Gallery, so the top bar stays three buttons wide on a phone) says which:
+Andrew Clemens's hickory sticks and tin cup, the funnels and long tools of
+the Petra sand bottles, the chak-pur of the Tibetan sand mandala, the
+Alum Bay souvenir jar and its cliff colours, the trickle of Navajo
+sandpainting in its public form, the feathers and spoons of bonseki, and
+the lit table of sand animation. Each entry is a short write-up, where to
+read more, a sample jar made in that style, and chips for the tools it
+inspired: tap a chip to pick the tool up, tap **Try this jar** to get a
+copy of the sample in the gallery, open, and yours to change.
+
+The text is data, not code: `library.json` holds every entry and
+`library-ui.js` only lays it out. The sample jars are ordinary gallery
+records (`persist.js` v2) in `library/jars/`, and they really were made in
+the app: `tools/library-recipes.mjs` is the pointer script for each — a
+list of strokes naming a tool, a tint and a path — and
+`tools/library-build.mjs` replays them through the real tools on the real
+kernel in a headless browser and writes the record and a picture of it
+(`library/<id>.png`, air transparent, drawn over the theme's ground in the
+sheet). The kernel is deterministic, so unchanged recipes rebuild to
+identical bytes. `library/SOURCES.md` lists every shipped picture's origin
+and licence, and the repo gates fail on one it does not name.
+
+Inside the launcher a game frame cannot open windows, so a source link
+there copies its address to the clipboard and says so; standalone it opens
+a tab.
+
 ## Files
 
 | File | Purpose |
@@ -117,7 +150,10 @@ in it. The pre-gallery single record is adopted as "Jar 1" on first boot.
 | `hints.js` | Pure: the landing mask. |
 | `persist.js` | The gallery store: records, list, rename, duplicate, remove, legacy adoption. |
 | `gallery-ui.js` | The gallery sheet. |
-| `sheet.js` | The in-page modal panel both sheets use. |
+| `library-ui.js` | The Library sheet: the index of influences, and one entry at a time. |
+| `library.json` | The Library's entries: text, sources, tools, picture, sample jar. |
+| `library/` | The sample jars (`jars/*.json`), their pictures, and `SOURCES.md`. |
+| `sheet.js` | The in-page modal panel the three sheets use. |
 | `tools.js` | The tool table: data plus `down`/`move`/`frame` hooks that only touch the sim. |
 | `palette.js` | The curated tints, and empty/wall colours per theme. |
 | `style.css` | Font-scale and theme aware chrome; no animations. |
