@@ -18,6 +18,10 @@
  *     wasm memory grows — see the kernel wrapper's header).
  *   • Persistence goes through Arcade.store (persist.js) and small prefs
  *     through Arcade.state; nothing here touches localStorage (§9).
+ *   • Fingers go through gestures.js: one is the tool, two are the view
+ *     (pinch to zoom 1×–4× and pan, double tap to toggle 3×). The blit is
+ *     still one drawImage — with a source rectangle — and toCell maps
+ *     through the same view, so the tool lands where the finger is.
  *
  * A jar can have a picture behind it (importer.js): the framebuffer's air
  * is made transparent and the picture is drawn under it, one pixel per
@@ -37,7 +41,8 @@ import { importPicture } from './importer.js';
 import { openGallerySheet } from './gallery-ui.js';
 import { openLibrarySheet } from './library-ui.js';
 import { landingMask } from './hints.js';
-import { mapToColours, NONE } from './template.js';
+import { mapToColours, NONE, viewRect, zoomAt } from './template.js';
+import { createGestures } from './gestures.js';
 
 // 192×320 is chunk-aligned (12×20 of the kernel's 16×16 chunks) and small
 // enough that a full-grid step is well under a millisecond on a phone; the
@@ -52,7 +57,7 @@ const THUMB_W = 48, THUMB_H = 80;
 const $ = (id) => document.getElementById(id);
 const els = {
     stage: $('stage'), jar: $('jar'), view: $('view'),
-    status: $('status'), clear: $('clear'), photo: $('photo'), gallery: $('gallery'),
+    status: $('status'), clear: $('clear'), photo: $('photo'), gallery: $('gallery'), fit: $('fit'),
     options: $('options'), option: $('option'), optionLabel: $('option-label'), optionValue: $('option-value'),
     picture: $('picture'), opacity: $('opacity'), showPicture: $('show-picture'), landing: $('landing'), removePicture: $('remove-picture'),
     palette: $('palette'), toolbar: $('toolbar'),
@@ -65,9 +70,10 @@ let tint = sand ? sand.tint(1) : 17;           // Ochre
 const opts = {};                                 // tool id → slider value
 for (const t of TOOLS) if (t.option) opts[t.id] = t.option.value;
 
-// One finger. A second pointer while the first is down is ignored rather
-// than fought over; multi-touch is not a feature here.
-const pointer = { active: false, id: null, x: 0, y: 0, lx: 0, ly: 0, state: {} };   // state: per-stroke scratch
+// The stroke the tool sees: one finger, in grid cells, with per-stroke
+// scratch in `state`. gestures.js decides when a finger is a stroke and
+// when a pair of them is the view.
+const pointer = { active: false, x: 0, y: 0, lx: 0, ly: 0, state: {} };
 const jitter = Arcade.rng('sand-art:jitter');
 
 let settings = { theme: 'dark', powerSaver: false };
@@ -129,23 +135,27 @@ let mask = new Uint8Array(W * H);
 const viewCtx = els.view.getContext('2d', { alpha: false });
 let img = null;
 
+// Every layer is drawn through the same source rectangle — the part of
+// the grid the view shows — so zooming costs nothing extra: it is the one
+// blit, cropped.
 function blit() {
     const px = sim.pixels;                       // re-read: the view may have been replaced
     if (!img || img.data !== px) img = new ImageData(px, W, H);
     offCtx.putImageData(img, 0, 0);
     const vw = els.view.width, vh = els.view.height;
+    const r = viewRect(gestures.view, W, H);
     viewCtx.imageSmoothingEnabled = false;
     if (template && showPicture) {
         viewCtx.fillStyle = groundCss(settings.theme);
         viewCtx.fillRect(0, 0, vw, vh);
         viewCtx.globalAlpha = template.opacity;
-        viewCtx.drawImage(template.img, 0, 0, vw, vh);
+        viewCtx.drawImage(template.img, r.x, r.y, r.w, r.h, 0, 0, vw, vh);
         viewCtx.globalAlpha = 1;
     }
-    viewCtx.drawImage(off, 0, 0, vw, vh);
+    viewCtx.drawImage(off, r.x, r.y, r.w, r.h, 0, 0, vw, vh);
     if (showLanding) {
         drawLanding();
-        viewCtx.drawImage(hint, 0, 0, vw, vh);
+        viewCtx.drawImage(hint, r.x, r.y, r.w, r.h, 0, 0, vw, vh);
     }
 }
 
@@ -222,12 +232,47 @@ function reveal(el, item) {
     }
 }
 
-function toCell(e) {
+// A pointer in window units: cells at 1×, before the view. gestures.js
+// takes it from there — through the view to a grid cell for a stroke, or
+// into a pinch.
+function toWindow(e) {
     const r = els.view.getBoundingClientRect();
-    const x = Math.floor((e.clientX - r.left) / r.width * W);
-    const y = Math.floor((e.clientY - r.top) / r.height * H);
-    return { x: Math.max(0, Math.min(W - 1, x)), y: Math.max(0, Math.min(H - 1, y)) };
+    return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
 }
+
+// ── the view ───────────────────────────────────────────────────────────────
+// The jar fitted to the stage is scale 1; a pinch or a double tap zooms it
+// to 4× at most, and a pan can never show past the grid's edge. The chip
+// on the stage says how far in and puts it back.
+const gestures = createGestures({
+    W, H,
+    on: {
+        stroke(kind, x, y) {
+            if (kind === 'down') {
+                pointer.active = true;
+                pointer.x = pointer.lx = x; pointer.y = pointer.ly = y;
+                pointer.state = {};
+                markDirty();
+                wake();
+                if (tool.down) tool.down(toolArgs());
+            } else if (kind === 'move') {
+                pointer.lx = pointer.x; pointer.ly = pointer.y;
+                pointer.x = x; pointer.y = y;
+                wake();
+                if (tool.move) tool.move(toolArgs());
+            } else {
+                pointer.active = false;
+                wake();                          // one more pass decides whether to rest
+            }
+        },
+        view(v) {
+            const zoomed = v.scale > 1.001;
+            els.fit.hidden = !zoomed;
+            if (zoomed) els.fit.textContent = 'Fit \u00b7 ' + (Math.round(v.scale * 10) / 10) + '\u00d7';
+            if (sim) blit();
+        },
+    },
+});
 
 // ── the loop ───────────────────────────────────────────────────────────────
 let looping = false;
@@ -573,39 +618,41 @@ function buildUi() {
         if (r === 'library') await showLibrary();
     });
 
-    // Pointer → cells. touch-action:none is set in CSS so the browser never
-    // scrolls or zooms the page under a stroke; the pointer is captured so a
-    // stroke that leaves the jar still ends cleanly.
+    // Pointers → gestures. touch-action:none is set in CSS so the browser
+    // never scrolls or zooms the page under a finger; each pointer is
+    // captured so a stroke or a pinch that leaves the jar still ends
+    // cleanly. The grace before a stroke commits is a timer here and a
+    // tick there.
     const v = els.view;
     v.addEventListener('pointerdown', (e) => {
-        if (pointer.active || e.button > 0) return;
+        if (e.button > 0) return;
         try { v.setPointerCapture(e.pointerId); } catch (err) { /* stylus edge cases */ }
-        const c = toCell(e);
-        pointer.active = true; pointer.id = e.pointerId;
-        pointer.x = pointer.lx = c.x; pointer.y = pointer.ly = c.y;
-        pointer.state = {};
-        markDirty();
-        wake();
-        if (tool.down) tool.down(toolArgs());
+        const w = toWindow(e);
+        const wait = gestures.down(e.pointerId, w.x, w.y, performance.now());
+        if (wait) Arcade.session.setTimeout(() => gestures.tick(performance.now()), wait + 2);
         e.preventDefault();
     });
     v.addEventListener('pointermove', (e) => {
-        if (!pointer.active || e.pointerId !== pointer.id) return;
-        const c = toCell(e);
-        if (c.x === pointer.x && c.y === pointer.y) return;
-        pointer.lx = pointer.x; pointer.ly = pointer.y;
-        pointer.x = c.x; pointer.y = c.y;
-        wake();
-        if (tool.move) tool.move(toolArgs());
+        const w = toWindow(e);
+        gestures.move(e.pointerId, w.x, w.y);
     });
-    const release = (e) => {
-        if (!pointer.active || e.pointerId !== pointer.id) return;
-        pointer.active = false; pointer.id = null;
-        wake();                                  // one more pass decides whether to rest
-    };
-    v.addEventListener('pointerup', release);
-    v.addEventListener('pointercancel', release);
+    v.addEventListener('pointerup', (e) => gestures.up(e.pointerId, performance.now()));
+    v.addEventListener('pointercancel', (e) => gestures.cancel(e.pointerId));
     v.addEventListener('contextmenu', (e) => e.preventDefault());
+    // Desktop: ctrl+wheel (or a trackpad pinch, which arrives the same way)
+    // zooms about the cursor; a plain wheel pans once zoomed in.
+    v.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        const w = toWindow(e);
+        const cur = gestures.view;
+        if (e.ctrlKey || e.metaKey) {
+            gestures.setView(zoomAt(cur, Math.exp(-e.deltaY * 0.004), w.x, w.y, W, H, W, H));
+        } else if (cur.scale > 1.001) {
+            const k = W / v.getBoundingClientRect().width;
+            gestures.setView({ scale: cur.scale, x: cur.x - e.deltaX * k, y: cur.y - e.deltaY * k });
+        }
+    }, { passive: false });
+    els.fit.addEventListener('click', () => gestures.setView({ scale: 1, x: 0, y: 0 }));
 
     new ResizeObserver(fit).observe(els.stage);
     watchStrip(els.toolbar);
@@ -665,7 +712,8 @@ async function boot() {
         if (settings.theme !== was) { repalette(); loop.kick(); }
     });
     Arcade.onSuspend(() => {
-        pointer.active = false; pointer.id = null;
+        gestures.reset();                        // the browser will not send the ups
+        pointer.active = false;
         if (dirty) flushSave();                  // the grace window is enough for one IDB put
     });
     Arcade.onResume(() => { wake(); });          // rests again on its own if nothing moved
@@ -686,7 +734,7 @@ async function boot() {
             running: () => looping, sim, pickTool, pickTint, flushSave,
             importFile: addPicture, gallery, freshJar, openRecord,
             template: () => template, extra: () => extra, openId: () => openId, setLanding,
-            showLibrary,
+            showLibrary, gestures,
         };
     }
 }

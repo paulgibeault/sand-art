@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert";
-import { coverFit, clampView, zoomAt, turned, MAX_ZOOM, nearest, extractPalette, mapToColours, renderMapped, NONE } from "../template.js";
+import { coverFit, clampView, zoomAt, viewRect, turned, MAX_ZOOM, nearest, extractPalette, mapToColours, renderMapped, NONE } from "../template.js";
 
 const W = 192, H = 320;
 
@@ -39,6 +39,17 @@ test("zoomAt keeps the point under the finger where it was", () => {
     // …is still under it after
     assert.ok(Math.abs((px - v1.x) / v1.scale - ix) < 1e-6);
     assert.ok(Math.abs((py - v1.y) / v1.scale - iy) < 1e-6);
+});
+
+test("viewRect is the part of the picture a view shows", () => {
+    assert.deepStrictEqual(viewRect({ scale: 1, x: 0, y: 0 }, W, H), { x: 0, y: 0, w: W, h: H });
+    // 2× with the picture shifted up-left by 100,200 window units shows a
+    // half-size window starting at picture (50,100).
+    assert.deepStrictEqual(viewRect({ scale: 2, x: -100, y: -200 }, W, H), { x: 50, y: 100, w: W / 2, h: H / 2 });
+    // zoomAt about a point then viewRect: the point's picture coordinate is inside the rect
+    const v = zoomAt({ scale: 1, x: 0, y: 0 }, 3, 150, 300, W, H, W, H);
+    const r = viewRect(v, W, H);
+    assert.ok(r.x <= 150 && 150 <= r.x + r.w && r.y <= 300 && 300 <= r.y + r.h);
 });
 
 test("turned swaps the sides on odd quarter turns", () => {

@@ -25,7 +25,7 @@ staging, from a launcher checkout that has `sdk/v3/arcade-sim-sand.js`:
 Re-run `./dev.sh` after editing — it copies the app into `.dev-stage`.
 
 Add `?dev=1` to get `window.__sandArt` (`running()`, `sim`, `pickTool`,
-`pickTint`, `flushSave`, `showLibrary`, …) for driving it from a script.
+`pickTint`, `flushSave`, `showLibrary`, `gestures`, …) for driving it from a script.
 
 ## CI / deploy
 
@@ -77,6 +77,20 @@ kernel defaults.
 
 **Empty** asks first (`Arcade.ui.confirm`, a real dialog inside the
 launcher where native `confirm` is a no-op). The picture stays.
+
+## The hand
+
+Two fingers are always the view and one finger is always the tool; there
+is no mode to switch. Pinch to zoom the jar from fit to 4× and pan it
+(never past the grid's edge), double-tap to toggle 3× about the tap,
+ctrl+wheel on a desktop; a **Fit** chip on the stage says how far in you
+are and puts the jar back. Rendering stays one crisp blit: the same
+source rectangle crops the picture, the sand and the landing overlay,
+and `toCell` maps a finger through the same view, so the tool lands
+where the finger is. The one subtlety is in `gestures.js`: the second
+finger of a pinch lands a few milliseconds after the first, so a stroke
+waits an 80 ms grace before it commits (a tap or a drag commits at once)
+and a pinch never leaves a dot.
 
 ## A picture behind the jar
 
@@ -144,7 +158,8 @@ a tab.
 | File | Purpose |
 |------|---------|
 | `index.html` | Loads the SDK and the kernel, calls `Arcade.init`, registers the SW. |
-| `main.js` | Boot, the `Arcade.loop` wake/rest loop, pointer → cells, the blit (picture under, landing overlay over), the open jar, UI wiring. |
+| `main.js` | Boot, the `Arcade.loop` wake/rest loop, pointers → gestures, the blit through the view (picture under, landing overlay over), the open jar, UI wiring. |
+| `gestures.js` | Pure: one finger strokes, two pinch the view; the grace, the double tap, the clamped view. |
 | `template.js` | Pure: cover-fit and clamped pan/zoom, median-cut palette pull, nearest-tint mapping. |
 | `importer.js` | The fit sheet: file decode, the crop canvas, fingers, the "As sand" preview. |
 | `hints.js` | Pure: the landing mask. |

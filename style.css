@@ -191,6 +191,15 @@ h1 { grid-area: title; margin: 0; font-size: 1.05rem; font-weight: 600; letter-s
   background: var(--glass);
   pointer-events: none;
 }
+/* the zoom chip: sits on the stage above the jar's rim while zoomed in */
+.stage .fit {
+  position: absolute;
+  z-index: 2;
+  top: 0.6rem;
+  inset-inline-start: 0.9rem;
+  background: var(--bg);
+  font-variant-numeric: tabular-nums;
+}
 #view {
   display: block;
   width: 100%;
