@@ -76,7 +76,8 @@ the batch `sim.setPalette([...])` on ids 17..31 (`palette.js`); the remaining ti
 kernel defaults.
 
 **Empty** asks first (`Arcade.ui.confirm`, a real dialog inside the
-launcher where native `confirm` is a no-op). The picture stays.
+launcher where native `confirm` is a no-op). The picture stays, and undo
+brings the sand back.
 
 ## The hand
 
@@ -91,6 +92,14 @@ where the finger is. The one subtlety is in `gestures.js`: the second
 finger of a pinch lands a few milliseconds after the first, so a stroke
 waits an 80 ms grace before it commits (a tap or a drag commits at once)
 and a pinch never leaves a dot.
+
+**Undo** is a snapshot of the grid before every stroke, and before
+**Empty**: two dozen of them, 60 KB each, and one `sim.load()` to go back
+(`history.js`). The kernel repaints and wakes every chunk on a load, so a
+snapshot taken mid-fall simply carries on falling. **Redo** keeps what undo
+removed until a new stroke forks the timeline; both are chips on the
+stage that appear when there is somewhere to go, and Ctrl/Cmd+Z and
+Shift+Z on a keyboard. Undo is for the session; the gallery is for keeps.
 
 ## A picture behind the jar
 
@@ -160,6 +169,7 @@ a tab.
 | `index.html` | Loads the SDK and the kernel, calls `Arcade.init`, registers the SW. |
 | `main.js` | Boot, the `Arcade.loop` wake/rest loop, pointers → gestures, the blit through the view (picture under, landing overlay over), the open jar, UI wiring. |
 | `gestures.js` | Pure: one finger strokes, two pinch the view; the grace, the double tap, the clamped view. |
+| `history.js` | Pure: the undo stack of grids, bounded, with redo. |
 | `template.js` | Pure: cover-fit and clamped pan/zoom, median-cut palette pull, nearest-tint mapping. |
 | `importer.js` | The fit sheet: file decode, the crop canvas, fingers, the "As sand" preview. |
 | `hints.js` | Pure: the landing mask. |

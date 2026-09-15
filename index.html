@@ -39,6 +39,12 @@
       <!-- Shown only while zoomed in: how far, and a way back. Pinch or
            double-tap the jar to zoom; ctrl+wheel on a desktop. -->
       <button id="fit" class="ghost small fit" type="button" hidden title="Fit the jar to the stage">Fit</button>
+      <!-- Undo and redo: a snapshot of the grid before every stroke. Shown
+           only when there is somewhere to go. Ctrl/Cmd+Z and Shift too. -->
+      <div class="undo-redo">
+        <button id="undo" class="ghost small" type="button" hidden title="Undo the last stroke (Ctrl+Z)">Undo</button>
+        <button id="redo" class="ghost small" type="button" hidden title="Redo (Ctrl+Shift+Z)">Redo</button>
+      </div>
     </div>
 
     <!-- The controls travel as one block: under the jar on a portrait phone,
