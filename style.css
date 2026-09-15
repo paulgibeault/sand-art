@@ -74,8 +74,9 @@ body {
   grid-template-rows: auto minmax(0, 1fr) auto;
   grid-template-columns: minmax(0, 1fr);
   grid-template-areas: "top" "stage" "controls";
-  padding: env(safe-area-inset-top) env(safe-area-inset-right)
-           env(safe-area-inset-bottom) env(safe-area-inset-left);
+  /* No bottom inset here in portrait: the gutter under the strips carries
+   * it (and a floor), so the inset is never counted twice. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) 0 env(safe-area-inset-left);
 }
 
 /* ── top bar ─────────────────────────────────────────────────────────── */
@@ -313,6 +314,19 @@ h1 { grid-area: title; margin: 0; font-size: 1.05rem; font-weight: 600; letter-s
 }
 .tool.on { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
 
+/* The gutter: the strips must never be the last thing before the bottom
+ * edge. On an iPhone the home-indicator zone runs along that edge and a
+ * sideways scroll begun there becomes the OS gesture, so the toolbar ends
+ * a clear band above it. env() reads the real inset in Safari and in a
+ * standalone PWA; inside the launcher's sandboxed frame it can read 0, so
+ * there is a fixed floor either way. It wears the toolbar's chrome so the
+ * bar simply runs to the edge of the screen. */
+.gutter {
+  flex: 0 0 auto;
+  height: max(env(safe-area-inset-bottom, 0px), 1.25rem);
+  background: var(--chrome);
+}
+
 /* ── sheets: the picture fit and the gallery ─────────────────────────────
  * In-page modal panels (sheet.js). A backdrop over the whole app and a
  * body that is a bottom sheet on a phone and a centred card when there is
@@ -515,7 +529,9 @@ h1 { grid-area: title; margin: 0; font-size: 1.05rem; font-weight: 600; letter-s
     grid-template-columns: minmax(0, 1fr) minmax(17rem, 23rem);
     grid-template-rows: auto minmax(0, 1fr);
     grid-template-areas: "stage top" "stage controls";
+    padding-bottom: env(safe-area-inset-bottom);
   }
+  .gutter { height: 0.5rem; background: none; }
   [data-handedness="left"] .app {
     grid-template-columns: minmax(17rem, 23rem) minmax(0, 1fr);
     grid-template-areas: "top stage" "controls stage";

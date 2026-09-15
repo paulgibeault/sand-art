@@ -62,6 +62,11 @@
       <div class="palette strip" id="palette" role="radiogroup" aria-label="Sand colour"></div>
 
       <nav class="toolbar strip" id="toolbar" role="radiogroup" aria-label="Tool"></nav>
+
+      <!-- A gutter under the strips: on an iPhone the home-indicator swipe
+           zone runs along the bottom edge, and a strip that ended there lost
+           sideways scrolls to it. Nothing interactive sits in the gutter. -->
+      <div class="gutter" aria-hidden="true"></div>
     </div>
   </main>
 
