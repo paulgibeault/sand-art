@@ -36,12 +36,16 @@
       <div class="jar" id="jar">
         <canvas id="view" aria-label="A jar of coloured sand"></canvas>
       </div>
-      <!-- Shown only while zoomed in: how far, and a way back. Pinch or
-           double-tap the jar to zoom; ctrl+wheel on a desktop. -->
-      <button id="fit" class="ghost small fit" type="button" hidden title="Fit the jar to the stage">Fit</button>
-      <!-- Undo and redo: a snapshot of the grid before every stroke. Shown
-           only when there is somewhere to go. Ctrl/Cmd+Z and Shift too. -->
-      <div class="undo-redo">
+      <!-- Chips above the jar's rim. Left: Fit, shown only while zoomed in
+           (pinch or double-tap the jar; ctrl+wheel on a desktop), and Tilt,
+           which leans the jar so what is poured next slopes. Right: undo
+           and redo, shown only when there is somewhere to go (Ctrl/Cmd+Z,
+           and Shift for redo). -->
+      <div class="chips left">
+        <button id="fit" class="ghost small" type="button" hidden title="Fit the jar to the stage">Fit</button>
+        <button id="tilt" class="ghost small toggle" type="button" hidden title="Tilt the jar: what you pour next slopes">Tilt</button>
+      </div>
+      <div class="chips right">
         <button id="undo" class="ghost small" type="button" hidden title="Undo the last stroke (Ctrl+Z)">Undo</button>
         <button id="redo" class="ghost small" type="button" hidden title="Redo (Ctrl+Shift+Z)">Redo</button>
       </div>

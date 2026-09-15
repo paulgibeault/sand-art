@@ -1,6 +1,6 @@
 import { test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
-import { toBase64, fromBase64, openGallery, newId } from "../persist.js";
+import { toBase64, fromBase64, openGallery, newId, isTilt } from "../persist.js";
 import { fakeSim } from "./fake-sim.js";
 
 test("the grid codec round-trips every byte value, across the 8 KB chunk seam", () => {
@@ -121,6 +121,20 @@ test("rename, duplicate and remove", async () => {
     await g.remove("j1");
     assert.strictEqual(await g.get("j1"), null);
     assert.deepStrictEqual((await g.list()).map((r) => r.id), [copy.id]);
+});
+
+test("a tilt is saved beside the grid, and only a real one", async () => {
+    const g = openGallery();
+    await g.save(filled(), { id: "up", name: "Upright" });
+    assert.strictEqual((await g.get("up")).gravity, null, "upright is the absence of a tilt");
+    await g.save(filled(), { id: "t", name: "Tilted", gravity: [1, 1] });
+    assert.deepStrictEqual((await g.get("t")).gravity, [1, 1]);
+    await g.save(filled(), { id: "bad", name: "x", gravity: [2, 0] });
+    assert.strictEqual((await g.get("bad")).gravity, null, "off the ring is not a tilt");
+    const copy = await g.add(await g.get("t"), "Copy");
+    assert.deepStrictEqual(copy.gravity, [1, 1], "a copy keeps the tilt");
+    assert.strictEqual(isTilt([0, 1]), false); assert.strictEqual(isTilt([0, 0]), false);
+    assert.strictEqual(isTilt([-1, 1]), true); assert.strictEqual(isTilt("1,1"), false);
 });
 
 test("the pre-gallery record is adopted once as the first jar", async () => {

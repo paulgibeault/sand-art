@@ -78,6 +78,7 @@ test("every sample jar is a settled v2 record that opens through the gallery's r
         assert.strictEqual(rec.name, RECIPES[e.id].name, `${e.id}: the jar is named as its recipe names it`);
         assert.match(rec.thumb, /^data:image\/jpeg;base64,/, `${e.id}: carries a thumbnail for the gallery list`);
         assert.strictEqual(rec.template, null); assert.strictEqual(rec.palette, null);
+        assert.strictEqual(rec.gravity, null, `${e.id}: a sample ships upright`);
         const sim = fakeSim();
         assert.strictEqual(g.restore(sim, rec), true, `${e.id}: restore refused it`);
         assert.deepStrictEqual(sim.calls, [["load", W * H]], `${e.id}: restore is one load`);
@@ -116,7 +117,7 @@ test("every recipe replays through the real tools and asks the kernel only for k
         assert.ok(recipe.name && recipe.steps.length > 0, `${id}: a name and some strokes`);
         const sim = fakeSim();
         const out = runRecipe(recipe, { sim, sand, tools: TOOL_BY_ID, rng: seededRng(id) });
-        assert.strictEqual(out.strokes, recipe.steps.length);
+        assert.strictEqual(out.strokes, recipe.steps.filter((s) => !s.tilt).length);
         const asked = sim.calls.filter(([n]) => n === "paint" || n === "replace");
         assert.ok(asked.length > 0, `${id}: never painted`);
         for (const c of asked) {
@@ -124,6 +125,7 @@ test("every recipe replays through the real tools and asks the kernel only for k
             for (const m of mats) assert.ok(isMaterial(m), `${id}: ${c[0]} with material ${m}`);
         }
         for (const s of recipe.steps) {
+            if (s.tilt) { assert.ok(s.tilt.every((v) => v >= -1 && v <= 1), `${id}: a tilt off the ring`); continue; }
             assert.ok(s.tint >= 0 && s.tint < 16, `${id}: tint ${s.tint} is not a curated swatch`);
             const o = TOOL_BY_ID[s.tool].option;
             if (o && s.opt !== undefined) assert.ok(s.opt >= o.min && s.opt <= o.max, `${id}: ${s.tool} option ${s.opt} outside [${o.min}, ${o.max}]`);

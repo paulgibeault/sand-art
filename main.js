@@ -27,6 +27,8 @@
  *   • The tool is drawn where it acts (overlay.js, shapes from tools.js):
  *     under a finger during a stroke, under the mouse on a desktop. Lift
  *     moves the acting point a little above a finger so the tip shows.
+ *   • Tilt is the kernel's gravity (sim.tilt, R17): the jar leans and what
+ *     is poured next slopes, Petra's way. It is saved beside the grid.
  *
  * A jar can have a picture behind it (importer.js): the framebuffer's air
  * is made transparent and the picture is drawn under it, one pixel per
@@ -65,7 +67,7 @@ const $ = (id) => document.getElementById(id);
 const els = {
     stage: $('stage'), jar: $('jar'), view: $('view'),
     status: $('status'), clear: $('clear'), photo: $('photo'), gallery: $('gallery'), fit: $('fit'),
-    undo: $('undo'), redo: $('redo'),
+    undo: $('undo'), redo: $('redo'), tilt: $('tilt'),
     options: $('options'), opt: $('opt'), option: $('option'), optionLabel: $('option-label'), optionValue: $('option-value'), lift: $('lift'),
     picture: $('picture'), opacity: $('opacity'), showPicture: $('show-picture'), landing: $('landing'), removePicture: $('remove-picture'),
     palette: $('palette'), toolbar: $('toolbar'),
@@ -257,6 +259,28 @@ function toWindow(e) {
     return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H - up };
 }
 
+// ── tilt ───────────────────────────────────────────────────────────────────
+// Petra's sloped layers: the jar tilted while pouring. The chip cycles
+// upright, leaning left, leaning right; the arrow says which way the sand
+// slides. It is a property of the jar, saved with it, and it is only
+// offered when the kernel can tilt.
+const TILTS = [[0, 1], [-1, 1], [1, 1]];
+const TILT_LABEL = { '0,1': 'Tilt', '-1,1': 'Tilt \u2199', '1,1': 'Tilt \u2198' };
+let gravity = [0, 1];
+const canTilt = () => !!(sim && typeof sim.tilt === 'function');
+function setTilt(g) {
+    gravity = Array.isArray(g) && TILT_LABEL[g.join(',')] ? [g[0], g[1]] : [0, 1];
+    if (canTilt()) sim.tilt(gravity[0], gravity[1]);
+    els.tilt.textContent = TILT_LABEL[gravity.join(',')];
+    els.tilt.classList.toggle('on', gravity[0] !== 0 || gravity[1] !== 1);
+}
+function cycleTilt() {
+    const i = TILTS.findIndex((t) => t[0] === gravity[0] && t[1] === gravity[1]);
+    setTilt(TILTS[(i + 1) % TILTS.length]);
+    markDirty();
+    wake();                                      // everything re-settles under the new gravity
+}
+
 // ── undo ───────────────────────────────────────────────────────────────────
 // The grid before each stroke, and before Empty. Going back is one
 // sim.load(): the kernel validates, repaints and wakes every chunk, so a
@@ -390,6 +414,7 @@ async function flushSave() {
             thumb: makeThumb(),
             template: template ? { png: template.png, opacity: template.opacity } : null,
             palette: extra,
+            gravity,
         });
         openMeta.created = rec.created;
         Arcade.state.set('open', openId);
@@ -462,6 +487,7 @@ async function openRecord(rec) {
     openId = rec.id;
     openMeta = { name: rec.name || '', created: rec.created || 0 };
     history.clear(); syncHistory();
+    setTilt(rec.gravity);
     dirty = false;
     Arcade.state.set('open', openId);
     await setTemplate(next, rec.palette);
@@ -476,6 +502,7 @@ async function freshJar() {
     if (dirty) await flushSave();
     sim.clear();
     history.clear(); syncHistory();
+    setTilt([0, 1]);
     openId = newId();
     const n = (await gallery.list()).length + 1;
     openMeta = { name: 'Jar ' + n, created: 0 };
@@ -711,6 +738,7 @@ function buildUi() {
     }, { passive: false });
     els.fit.addEventListener('click', () => gestures.setView({ scale: 1, x: 0, y: 0 }));
     els.lift.addEventListener('click', () => { setLift(!lift); savePrefs(); });
+    els.tilt.addEventListener('click', cycleTilt);
     els.undo.addEventListener('click', () => travel(true));
     els.redo.addEventListener('click', () => travel(false));
     document.addEventListener('keydown', (e) => {
@@ -740,6 +768,7 @@ async function boot() {
     // a jar every day.
     sim = await sand.create({ width: W, height: H, seed: 'sand-art' });
     repalette();
+    els.tilt.hidden = !canTilt();
 
     const prefs = Arcade.state.get('prefs');
     if (prefs && typeof prefs === 'object') {
@@ -801,7 +830,7 @@ async function boot() {
             running: () => looping, sim, pickTool, pickTint, flushSave,
             importFile: addPicture, gallery, freshJar, openRecord,
             template: () => template, extra: () => extra, openId: () => openId, setLanding,
-            showLibrary, gestures, history, travel,
+            showLibrary, gestures, history, travel, setTilt, gravity: () => gravity,
         };
     }
 }
