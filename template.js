@@ -47,6 +47,13 @@ export function zoomAt(view, factor, px, py, iw, ih, w, h) {
     return clampView({ scale, x: px - (px - view.x) * k, y: py - (py - view.y) * k }, iw, ih, w, h);
 }
 
+// The part of a w×h picture a view shows, in picture units — the source
+// rectangle for one drawImage. The jar's own zoom (gestures.js) is a view
+// of the grid over itself: the grid is both the picture and the window.
+export function viewRect(view, w, h) {
+    return { x: (0 - view.x) / view.scale, y: (0 - view.y) / view.scale, w: w / view.scale, h: h / view.scale };
+}
+
 // The picture's size after `turns` quarter turns.
 export function turned(iw, ih, turns) {
     return (turns & 1) ? { iw: ih, ih: iw } : { iw, ih };
