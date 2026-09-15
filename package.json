@@ -1,6 +1,6 @@
 {
   "name": "sand-art",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "private": true,
   "type": "module",
   "description": "Sand Art — a jar of coloured sand on the arcade's compiled sim-sand kernel.",
