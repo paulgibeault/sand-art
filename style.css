@@ -191,15 +191,16 @@ h1 { grid-area: title; margin: 0; font-size: 1.05rem; font-weight: 600; letter-s
   background: var(--glass);
   pointer-events: none;
 }
-/* the zoom chip: sits on the stage above the jar's rim while zoomed in */
-.stage .fit {
+/* the chips on the stage, above the jar's rim: Fit at one end while
+ * zoomed in, Undo and Redo at the other while there is somewhere to go */
+.stage .fit, .stage .undo-redo {
   position: absolute;
   z-index: 2;
   top: 0.6rem;
-  inset-inline-start: 0.9rem;
-  background: var(--bg);
-  font-variant-numeric: tabular-nums;
 }
+.stage .fit { inset-inline-start: 0.9rem; font-variant-numeric: tabular-nums; }
+.stage .undo-redo { inset-inline-end: 0.9rem; display: flex; gap: 0.35rem; }
+.stage .fit, .stage .undo-redo .ghost { background: var(--bg); }
 #view {
   display: block;
   width: 100%;

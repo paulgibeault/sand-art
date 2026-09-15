@@ -22,6 +22,8 @@
  *     (pinch to zoom 1×–4× and pan, double tap to toggle 3×). The blit is
  *     still one drawImage — with a source rectangle — and toCell maps
  *     through the same view, so the tool lands where the finger is.
+ *   • Undo is a snapshot of the grid before every stroke (history.js) and
+ *     one sim.load() back; the kernel repaints and re-settles from there.
  *
  * A jar can have a picture behind it (importer.js): the framebuffer's air
  * is made transparent and the picture is drawn under it, one pixel per
@@ -43,6 +45,7 @@ import { openLibrarySheet } from './library-ui.js';
 import { landingMask } from './hints.js';
 import { mapToColours, NONE, viewRect, zoomAt } from './template.js';
 import { createGestures } from './gestures.js';
+import { createHistory } from './history.js';
 
 // 192×320 is chunk-aligned (12×20 of the kernel's 16×16 chunks) and small
 // enough that a full-grid step is well under a millisecond on a phone; the
@@ -58,6 +61,7 @@ const $ = (id) => document.getElementById(id);
 const els = {
     stage: $('stage'), jar: $('jar'), view: $('view'),
     status: $('status'), clear: $('clear'), photo: $('photo'), gallery: $('gallery'), fit: $('fit'),
+    undo: $('undo'), redo: $('redo'),
     options: $('options'), option: $('option'), optionLabel: $('option-label'), optionValue: $('option-value'),
     picture: $('picture'), opacity: $('opacity'), showPicture: $('show-picture'), landing: $('landing'), removePicture: $('remove-picture'),
     palette: $('palette'), toolbar: $('toolbar'),
@@ -240,6 +244,28 @@ function toWindow(e) {
     return { x: (e.clientX - r.left) / r.width * W, y: (e.clientY - r.top) / r.height * H };
 }
 
+// ── undo ───────────────────────────────────────────────────────────────────
+// The grid before each stroke, and before Empty. Going back is one
+// sim.load(): the kernel validates, repaints and wakes every chunk, so a
+// snapshot taken mid-fall simply carries on falling.
+const history = createHistory();
+function remember() {
+    history.push(sim.grid.slice());
+    syncHistory();
+}
+function syncHistory() {
+    els.undo.hidden = !history.canUndo();
+    els.redo.hidden = !history.canRedo();
+}
+function travel(back) {
+    const grid = back ? history.undo(sim.grid.slice()) : history.redo(sim.grid.slice());
+    if (!grid) return;
+    try { sim.load(grid); } catch (e) { return; }
+    syncHistory();
+    markDirty();
+    wake();
+}
+
 // ── the view ───────────────────────────────────────────────────────────────
 // The jar fitted to the stage is scale 1; a pinch or a double tap zooms it
 // to 4× at most, and a pan can never show past the grid's edge. The chip
@@ -249,6 +275,7 @@ const gestures = createGestures({
     on: {
         stroke(kind, x, y) {
             if (kind === 'down') {
+                remember();
                 pointer.active = true;
                 pointer.x = pointer.lx = x; pointer.y = pointer.ly = y;
                 pointer.state = {};
@@ -416,6 +443,7 @@ async function openRecord(rec) {
     }
     openId = rec.id;
     openMeta = { name: rec.name || '', created: rec.created || 0 };
+    history.clear(); syncHistory();
     dirty = false;
     Arcade.state.set('open', openId);
     await setTemplate(next, rec.palette);
@@ -429,6 +457,7 @@ function clamp01(v, d) { return typeof v === 'number' && v >= 0 && v <= 1 ? v : 
 async function freshJar() {
     if (dirty) await flushSave();
     sim.clear();
+    history.clear(); syncHistory();
     openId = newId();
     const n = (await gallery.list()).length + 1;
     openMeta = { name: 'Jar ' + n, created: 0 };
@@ -565,8 +594,9 @@ function buildUi() {
         // Native confirm is a no-op inside the launcher's sandbox; the SDK
         // renders a real dialog framed and falls back to window.confirm
         // standalone (§7).
-        const sure = await Arcade.ui.confirm('Empty the jar? The sand is gone for good.', { okLabel: 'Empty', cancelLabel: 'Keep' });
+        const sure = await Arcade.ui.confirm('Empty the jar? Undo brings the sand back.', { okLabel: 'Empty', cancelLabel: 'Keep' });
         if (!sure) return;
+        remember();
         sim.clear();
         markDirty();                             // the emptied jar is what the gallery keeps
         loop.kick();
@@ -653,6 +683,14 @@ function buildUi() {
         }
     }, { passive: false });
     els.fit.addEventListener('click', () => gestures.setView({ scale: 1, x: 0, y: 0 }));
+    els.undo.addEventListener('click', () => travel(true));
+    els.redo.addEventListener('click', () => travel(false));
+    document.addEventListener('keydown', (e) => {
+        if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'z') return;
+        if (e.target && /^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return;
+        e.preventDefault();
+        travel(!e.shiftKey);
+    });
 
     new ResizeObserver(fit).observe(els.stage);
     watchStrip(els.toolbar);
@@ -734,7 +772,7 @@ async function boot() {
             running: () => looping, sim, pickTool, pickTint, flushSave,
             importFile: addPicture, gallery, freshJar, openRecord,
             template: () => template, extra: () => extra, openId: () => openId, setLanding,
-            showLibrary, gestures,
+            showLibrary, gestures, history, travel,
         };
     }
 }
