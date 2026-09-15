@@ -124,6 +124,16 @@ a tap sets down one measure that settles where it lands. And the flow
 slider is the chak-pur's rasp: it stays live while a finger pours, so a
 thumb can change the rate mid-stream.
 
+**Tilt** is Petra's sloped layers: the chip above the jar's rim cycles
+upright, leaning left and leaning right (the arrow says which way the
+sand slides), and what is poured next settles on a slope. It is the
+kernel's own gravity — `sim.tilt(gx, gy)`, any of the eight directions,
+rule R17 in the launcher's `tools/sim/sand-reference.mjs` — so the sand
+that has already settled stays settled until the jar is levelled again,
+when only surfaces steeper than the sand's own angle of rest slump. The
+tilt is saved beside the grid (`gravity` in the record) and comes back
+with the jar. The chip is there when the kernel can tilt.
+
 ## A picture behind the jar
 
 **Picture** opens a photo from the device (`Arcade.ui.openFile` — sandboxed
@@ -150,7 +160,7 @@ That is the point.
 ## The gallery
 
 Every jar is a record in `Arcade.store` (`persist.js`): the grid, the
-picture's PNG and opacity, its colours, and a thumbnail. The open jar
+picture's PNG and opacity, its colours, its tilt, and a thumbnail. The open jar
 saves itself as it settles. **Gallery** lists them newest first: tap to
 open, tap the name to rename in place, **Duplicate**, **Delete**
 (confirmed), **New jar**. A new jar is not written until something happens

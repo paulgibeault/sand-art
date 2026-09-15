@@ -45,7 +45,7 @@ export async function makeJar(id) {
 
     const record = {
         v: 2, id: 'library-' + id, name: recipe.name, created: 0, updated: 0,
-        w: W, h: H, grid: toBase64(sim.grid), thumb, template: null, palette: null,
+        w: W, h: H, grid: toBase64(sim.grid), thumb, template: null, palette: null, gravity: null,
     };
     sim.dispose();
     return { record, png, stats: { ...stats, floating, quiet: true } };

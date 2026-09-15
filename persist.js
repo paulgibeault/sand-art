@@ -20,7 +20,11 @@
  *     grid: base64,                        the cells
  *     thumb: dataURL | null,               a small render of the sand
  *     template: { png: dataURL, opacity } | null,   the picture behind the jar
- *     palette: [[r, g, b], …] | null }     the tints pulled from that picture
+ *     palette: [[r, g, b], …] | null,      the tints pulled from that picture
+ *     gravity: [gx, gy] | null }           the jar's tilt, null when upright
+ *
+ * `gravity` arrived with the kernel's tilt() and is optional: a record
+ * without it is upright, and a reader that predates it ignores it.
  *
  * Before the gallery there was one record, 'current', in a store named
  * 'picture' (v1). The first boot after the upgrade adopts it as the first
@@ -58,6 +62,12 @@ function isRecord(rec) {
     return !!rec && typeof rec === 'object' && rec.v === VERSION
         && typeof rec.id === 'string' && typeof rec.grid === 'string'
         && Number.isInteger(rec.w) && Number.isInteger(rec.h);
+}
+
+// A tilt worth saving: one of the eight ring directions other than upright.
+export function isTilt(g) {
+    return Array.isArray(g) && g.length === 2 && g.every((v) => Number.isInteger(v) && v >= -1 && v <= 1)
+        && !(g[0] === 0 && g[1] === 0) && !(g[0] === 0 && g[1] === 1);
 }
 
 // What the list shows: everything but the bulky fields.
@@ -106,6 +116,7 @@ export function openGallery() {
                 thumb: fields.thumb || null,
                 template: fields.template ? { png: fields.template.png, opacity: fields.template.opacity } : null,
                 palette: fields.palette || null,
+                gravity: isTilt(fields.gravity) ? [fields.gravity[0], fields.gravity[1]] : null,
             };
             await store.set(rec.id, rec);
             return rec;

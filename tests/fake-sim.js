@@ -37,6 +37,8 @@ export function fakeSim({ width = 192, height = 320, cell = materials.EMPTY } = 
         step() { calls.push(["step"]); },
         quiet: () => true,
         activeCells: () => 0,
+        tilt: rec("tilt"),
+        gravity: () => [0, 1],
     };
 }
 

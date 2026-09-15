@@ -191,16 +191,18 @@ h1 { grid-area: title; margin: 0; font-size: 1.05rem; font-weight: 600; letter-s
   background: var(--glass);
   pointer-events: none;
 }
-/* the chips on the stage, above the jar's rim: Fit at one end while
- * zoomed in, Undo and Redo at the other while there is somewhere to go */
-.stage .fit, .stage .undo-redo {
+/* the chips on the stage, above the jar's rim: Fit and Tilt at one end,
+ * Undo and Redo at the other, each shown only when it means something */
+.stage .chips {
   position: absolute;
   z-index: 2;
   top: 0.6rem;
+  display: flex;
+  gap: 0.35rem;
 }
-.stage .fit { inset-inline-start: 0.9rem; font-variant-numeric: tabular-nums; }
-.stage .undo-redo { inset-inline-end: 0.9rem; display: flex; gap: 0.35rem; }
-.stage .fit, .stage .undo-redo .ghost { background: var(--bg); }
+.stage .chips.left { inset-inline-start: 0.9rem; }
+.stage .chips.right { inset-inline-end: 0.9rem; }
+.stage .chips .ghost { background: var(--bg); font-variant-numeric: tabular-nums; }
 #view {
   display: block;
   width: 100%;

@@ -91,6 +91,9 @@ export function pour(tint, flow, times = 1, x0 = 0, x1 = W - 1) {
 }
 // Pour held at one spot: a cone.
 export const cone = (tint, flow, x, steps) => stroke('pour', tint, flow, [[x, 0]], { hold: steps });
+// Tilt the jar (the kernel's gravity): [0, 1] upright, [-1, 1] leaning
+// left, [1, 1] leaning right. What is poured next slopes.
+export const tilt = (gx, gy) => ({ tilt: [gx, gy] });
 // Fill the jar with one colour and trim the top level: poured past the
 // rim, then the surplus erased from the top down so nothing above is left
 // to fall. The surface lands on row 61, a little air under the rim.
@@ -228,7 +231,8 @@ export const RECIPES = {
     },
 
     // Alum Bay: the cliff's own colours, poured one on another; each layer
-    // leans a little, the way a poured layer does in a tilted bottle.
+    // leans a little, poured over part of the width the way a hand lays a
+    // layer in a tilted bottle.
     'alum-bay': {
         name: 'Alum Bay stripes',
         steps: [
@@ -347,6 +351,11 @@ function* walk(path) {
 export function runRecipe(recipe, { sim, sand, tools, rng }) {
     let steps = 0;
     for (const s of recipe.steps) {
+        if (s.tilt) {
+            sim.tilt(s.tilt[0], s.tilt[1]);
+            steps += settle(sim);
+            continue;
+        }
         const tool = tools[s.tool];
         if (!tool) throw new Error('recipe names no such tool: ' + s.tool);
         const p = {
@@ -366,5 +375,5 @@ export function runRecipe(recipe, { sim, sand, tools, rng }) {
         if (s.settle !== false) steps += settle(sim);
     }
     steps += settle(sim);
-    return { strokes: recipe.steps.length, steps };
+    return { strokes: recipe.steps.filter((s) => !s.tilt).length, steps };
 }
