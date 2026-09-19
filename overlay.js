@@ -82,3 +82,37 @@ export function drawTool(ctx, shape, x, y, rect, vw, vh) {
     }
     ctx.restore();
 }
+
+/**
+ * The tilt drag: a dot where the finger landed (the reference point), a line
+ * to where it is now, and an arrowhead along the lean the jar actually took
+ * (which snaps near an axis and may hold at 45°) — so the arrow is gravity.
+ * `drag` is { x0, y0, x, y, moved } in cells; `lean` degrees from straight
+ * down, + to the right.
+ */
+export function drawTilt(ctx, drag, lean, rect, vw, vh) {
+    const cs = vw / rect.w;
+    const px = (x) => (x + 0.5 - rect.x) * cs, py = (y) => (y + 0.5 - rect.y) * cs;
+    const x0 = px(drag.x0), y0 = py(drag.y0);
+    const len = Math.max(6 * cs, Math.hypot(px(drag.x) - x0, py(drag.y) - y0));
+    const a = lean * Math.PI / 180;
+    const x1 = x0 + Math.sin(a) * len, y1 = y0 + Math.cos(a) * len;
+    const head = Math.max(8, 3 * cs);
+    ctx.save();
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    for (const [colour, width] of [[DARK, 5], [LIGHT, 2.5]]) {
+        ctx.strokeStyle = colour; ctx.fillStyle = colour; ctx.lineWidth = width;
+        ctx.beginPath(); ctx.arc(x0, y0, Math.max(3, cs), 0, Math.PI * 2); ctx.stroke();
+        if (drag.moved) {
+            ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x1 - Math.sin(a - 0.45) * head, y1 - Math.cos(a - 0.45) * head);
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x1 - Math.sin(a + 0.45) * head, y1 - Math.cos(a + 0.45) * head);
+            ctx.stroke();
+        }
+    }
+    ctx.restore();
+}
