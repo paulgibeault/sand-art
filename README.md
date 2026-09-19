@@ -95,6 +95,16 @@ finger of a pinch lands a few milliseconds after the first, so a stroke
 waits an 80 ms grace before it commits (a tap or a drag commits at once)
 and a pinch never leaves a dot.
 
+**Tilt** is the jar's gravity, stepped by hand: upright, leaning left,
+leaning right. Inside the arcade on a phone the chip has a fourth stop,
+**Phone**, where the jar follows the way the phone is really held, through
+all eight of the kernel's directions (`Arcade.motion.compass(8)` →
+`sim.tilt()`; `tilt.js` has the chip's states). The launcher asks once
+before any game may sense motion and can take it back from its menu; the
+sensor runs only while the chip says Phone; and what a jar saves is the lean
+the phone chose, never the samples. Without motion the chip is exactly what
+it was.
+
 **Undo** is a snapshot of the grid before every stroke, and before
 **Empty**: two dozen of them, 60 KB each, and one `sim.load()` to go back
 (`history.js`). The kernel repaints and wakes every chunk on a load, so a

@@ -52,6 +52,7 @@ import { mapToColours, NONE, viewRect, zoomAt } from './template.js';
 import { createGestures } from './gestures.js';
 import { createHistory } from './history.js';
 import { drawTool } from './overlay.js';
+import { UPRIGHT, ringOr, tiltLabel, isLeaning, nextTilt } from './tilt.js';
 
 // 192×320 is chunk-aligned (12×20 of the kernel's 16×16 chunks) and small
 // enough that a full-grid step is well under a millisecond on a phone; the
@@ -263,20 +264,55 @@ function toWindow(e) {
 // Petra's sloped layers: the jar tilted while pouring. The chip cycles
 // upright, leaning left, leaning right; the arrow says which way the sand
 // slides. It is a property of the jar, saved with it, and it is only
-// offered when the kernel can tilt.
-const TILTS = [[0, 1], [-1, 1], [1, 1]];
-const TILT_LABEL = { '0,1': 'Tilt', '-1,1': 'Tilt \u2199', '1,1': 'Tilt \u2198' };
+// offered when the kernel can tilt. Where the arcade offers motion
+// (Arcade.motion, SDK 3.17+) a fourth state, Phone, lets the jar follow the
+// way the phone is really held — tilt.js has the states, this has the glue.
 let gravity = [0, 1];
+let phone = null;                                // { off } while the chip is in its Phone state
 const canTilt = () => !!(sim && typeof sim.tilt === 'function');
+const canPhone = () => !!(canTilt() && Arcade.motion && Arcade.motion.available());
 function setTilt(g) {
-    gravity = Array.isArray(g) && TILT_LABEL[g.join(',')] ? [g[0], g[1]] : [0, 1];
+    gravity = ringOr(g);
     if (canTilt()) sim.tilt(gravity[0], gravity[1]);
-    els.tilt.textContent = TILT_LABEL[gravity.join(',')];
-    els.tilt.classList.toggle('on', gravity[0] !== 0 || gravity[1] !== 1);
+    els.tilt.textContent = tiltLabel(gravity, !!phone);
+    els.tilt.classList.toggle('on', isLeaning(gravity, !!phone));
+    els.tilt.title = phone
+        ? 'The jar follows your phone. Tap to stand it upright.'
+        : 'Tilt the jar: what you pour next slopes';
+}
+// The sensor costs battery: it runs only while the chip says Phone.
+function stopPhone() {
+    if (!phone) return;
+    phone.off();
+    phone = null;
+    Arcade.motion.stop();
+}
+async function startPhone() {
+    // Called from the chip's tap — the gesture a permission prompt needs.
+    const how = await Arcade.motion.start({ hz: 15 });
+    if (how !== 'granted') {
+        // 'denied' was the player's own answer and needs no comment.
+        if (how === 'unavailable') Arcade.ui.toast('No motion sensor answered', { kind: 'info' });
+        return setTilt(UPRIGHT);
+    }
+    // compass(8) is the kernel's ring with hysteresis and a flat-hold, and
+    // answers only on a CHANGE — each one wakes every chunk of the jar.
+    const compass = Arcade.motion.compass(8);
+    const off = Arcade.motion.on((m) => {
+        const c = compass.update(m);
+        if (!c) return;
+        setTilt([c.gx, c.gy]);
+        markDirty();
+        wake();
+    });
+    phone = { off };
+    setTilt(UPRIGHT);
 }
 function cycleTilt() {
-    const i = TILTS.findIndex((t) => t[0] === gravity[0] && t[1] === gravity[1]);
-    setTilt(TILTS[(i + 1) % TILTS.length]);
+    const next = nextTilt(gravity, !!phone, canPhone());
+    stopPhone();
+    if (next.phone) return startPhone();
+    setTilt(next.gravity);
     markDirty();
     wake();                                      // everything re-settles under the new gravity
 }
@@ -487,6 +523,7 @@ async function openRecord(rec) {
     openId = rec.id;
     openMeta = { name: rec.name || '', created: rec.created || 0 };
     history.clear(); syncHistory();
+    stopPhone();
     setTilt(rec.gravity);
     dirty = false;
     Arcade.state.set('open', openId);
@@ -502,6 +539,7 @@ async function freshJar() {
     if (dirty) await flushSave();
     sim.clear();
     history.clear(); syncHistory();
+    stopPhone();
     setTilt([0, 1]);
     openId = newId();
     const n = (await gallery.list()).length + 1;
@@ -739,6 +777,11 @@ function buildUi() {
     els.fit.addEventListener('click', () => gestures.setView({ scale: 1, x: 0, y: 0 }));
     els.lift.addEventListener('click', () => { setLift(!lift); savePrefs(); });
     els.tilt.addEventListener('click', cycleTilt);
+    // Motion switched off in the launcher's menu mid-pour: the jar keeps the
+    // lean it has, and the chip goes back to being a hand's.
+    if (Arcade.motion && Arcade.motion.onChange) {
+        Arcade.motion.onChange((c) => { if (phone && !c.running) { stopPhone(); setTilt(gravity); } });
+    }
     els.undo.addEventListener('click', () => travel(true));
     els.redo.addEventListener('click', () => travel(false));
     document.addEventListener('keydown', (e) => {
