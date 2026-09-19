@@ -51,8 +51,8 @@ import { landingMask } from './hints.js';
 import { mapToColours, NONE, viewRect, zoomAt } from './template.js';
 import { createGestures } from './gestures.js';
 import { createHistory } from './history.js';
-import { drawTool } from './overlay.js';
-import { UPRIGHT, ringOr, tiltLabel, isLeaning, nextTilt } from './tilt.js';
+import { drawTool, drawTilt } from './overlay.js';
+import { normDeg, leanFromVector, snapDeg, follow, holdFloor, createPhoneLean, leanFromRing, ringFromLean, tiltLabel, isLeaning } from './tilt.js';
 
 // 192×320 is chunk-aligned (12×20 of the kernel's 16×16 chunks) and small
 // enough that a full-grid step is well under a millisecond on a phone; the
@@ -68,7 +68,7 @@ const $ = (id) => document.getElementById(id);
 const els = {
     stage: $('stage'), jar: $('jar'), view: $('view'),
     status: $('status'), clear: $('clear'), photo: $('photo'), gallery: $('gallery'), fit: $('fit'),
-    undo: $('undo'), redo: $('redo'), tilt: $('tilt'),
+    undo: $('undo'), redo: $('redo'), tilt: $('tilt'), phone: $('phone'),
     options: $('options'), opt: $('opt'), option: $('option'), optionLabel: $('option-label'), optionValue: $('option-value'), lift: $('lift'),
     picture: $('picture'), opacity: $('opacity'), showPicture: $('show-picture'), landing: $('landing'), removePicture: $('remove-picture'),
     palette: $('palette'), toolbar: $('toolbar'),
@@ -174,8 +174,9 @@ function blit() {
         drawLanding();
         viewCtx.drawImage(hint, r.x, r.y, r.w, r.h, 0, 0, vw, vh);
     }
+    if (dragTilt) { drawTilt(viewCtx, dragTilt, leanDeg, r, vw, vh); return; }
     const at = pointer.active ? pointer : hover;
-    if (at) drawTool(viewCtx, tool.shape(opts[tool.id]), at.x, at.y, r, vw, vh);
+    if (at && tiltMode !== 'drag') drawTool(viewCtx, tool.shape(opts[tool.id]), at.x, at.y, r, vw, vh);
 }
 
 // The landing overlay: every cell a grain could rest on right now, in the
@@ -261,60 +262,104 @@ function toWindow(e) {
 }
 
 // ── tilt ───────────────────────────────────────────────────────────────────
-// Petra's sloped layers: the jar tilted while pouring. The chip cycles
-// upright, leaning left, leaning right; the arrow says which way the sand
-// slides. It is a property of the jar, saved with it, and it is only
-// offered when the kernel can tilt. Where the arcade offers motion
-// (Arcade.motion, SDK 3.17+) a fourth state, Phone, lets the jar follow the
-// way the phone is really held — tilt.js has the states, this has the glue.
-let gravity = [0, 1];
-let phone = null;                                // { off } while the chip is in its Phone state
+// Petra's sloped layers: the jar tilted while pouring. The lean is an angle
+// (tilt.js), handed to the kernel's sim.lean() so the sand answers smoothly —
+// ten degrees of tilt is ten degrees of slope. Two hands set it: Tilt arms
+// the jar and the next drag IS gravity (where the finger lands is the
+// reference, the vector from it the direction; a tap stands the jar up); and
+// Phone, where the arcade offers motion, follows the way the phone is held.
+// It is a property of the jar, saved with it.
+let leanDeg = 0;
+let tiltMode = null;                             // null | 'drag' | 'phone'
+let dragTilt = null;                             // { x0, y0, x, y, moved } while a tilt drag is down
+let phone = null;                                // { off, lean } while Phone is on
+const MIN_DRAG_CELLS = 8;                        // shorter than this is a tap, not a direction
 const canTilt = () => !!(sim && typeof sim.tilt === 'function');
+const canLean = () => !!(sim && typeof sim.lean === 'function');
 const canPhone = () => !!(canTilt() && Arcade.motion && Arcade.motion.available());
-function setTilt(g) {
-    gravity = ringOr(g);
-    if (canTilt()) sim.tilt(gravity[0], gravity[1]);
-    els.tilt.textContent = tiltLabel(gravity, !!phone);
-    els.tilt.classList.toggle('on', isLeaning(gravity, !!phone));
-    els.tilt.title = phone
-        ? 'The jar follows your phone. Tap to stand it upright.'
+
+function renderTilt() {
+    els.tilt.textContent = tiltMode === 'phone' ? 'Tilt' : tiltLabel(leanDeg, tiltMode === 'drag' ? 'drag' : null);
+    els.tilt.classList.toggle('on', tiltMode === 'drag' || (tiltMode !== 'phone' && isLeaning(leanDeg)));
+    els.tilt.title = tiltMode === 'drag'
+        ? 'Drag on the jar: where you start is the reference, the way you drag is down. Tap the jar to stand it upright.'
         : 'Tilt the jar: what you pour next slopes';
+    els.phone.hidden = !canPhone() && tiltMode !== 'phone';
+    els.phone.textContent = tiltMode === 'phone' ? tiltLabel(leanDeg, 'phone') : 'Phone';
+    els.phone.classList.toggle('on', tiltMode === 'phone');
+    els.phone.setAttribute('aria-pressed', tiltMode === 'phone' ? 'true' : 'false');
 }
-// The sensor costs battery: it runs only while the chip says Phone.
+// The one door to the kernel. A kernel without lean() (SDK < 3.18) gets the
+// nearest of the ring's eight directions, as before.
+function setLean(deg) {
+    const next = normDeg(deg);
+    const changed = next !== leanDeg;
+    leanDeg = next;
+    if (canLean()) sim.lean(leanDeg);
+    else if (canTilt()) { const g = ringFromLean(leanDeg); sim.tilt(g[0], g[1]); }
+    renderTilt();
+    return changed;
+}
+function leanTo(deg) {                           // a hand moved it: save, and let it re-settle
+    if (setLean(deg)) { markDirty(); wake(); }
+}
+
+// Phone: the sensor costs battery, so it runs only while the chip is lit.
 function stopPhone() {
     if (!phone) return;
     phone.off();
     phone = null;
     Arcade.motion.stop();
+    if (tiltMode === 'phone') tiltMode = null;
+    renderTilt();
 }
 async function startPhone() {
     // Called from the chip's tap — the gesture a permission prompt needs.
-    const how = await Arcade.motion.start({ hz: 15 });
+    const how = await Arcade.motion.start({ hz: 30 });
     if (how !== 'granted') {
         // 'denied' was the player's own answer and needs no comment.
         if (how === 'unavailable') Arcade.ui.toast('No motion sensor answered', { kind: 'info' });
-        return setTilt(UPRIGHT);
+        return renderTilt();
     }
-    // compass(8) is the kernel's ring with hysteresis and a flat-hold, and
-    // answers only on a CHANGE — each one wakes every chunk of the jar.
-    const compass = Arcade.motion.compass(8);
+    const lean = createPhoneLean();
     const off = Arcade.motion.on((m) => {
-        const c = compass.update(m);
-        if (!c) return;
-        setTilt([c.gx, c.gy]);
-        markDirty();
-        wake();
+        // smoothed → the floor held at 45° → near an axis is the axis → and
+        // only then, if it is really a different angle, the kernel.
+        const target = snapDeg(holdFloor(leanDeg, lean.update(m)));
+        leanTo(follow(leanDeg, target));
     });
-    phone = { off };
-    setTilt(UPRIGHT);
+    phone = { off, lean };
+    tiltMode = 'phone';
+    renderTilt();
 }
-function cycleTilt() {
-    const next = nextTilt(gravity, !!phone, canPhone());
-    stopPhone();
-    if (next.phone) return startPhone();
-    setTilt(next.gravity);
-    markDirty();
-    wake();                                      // everything re-settles under the new gravity
+function togglePhone() {
+    if (tiltMode === 'phone') return stopPhone();
+    tiltMode = null; dragTilt = null;
+    startPhone();
+}
+// Tilt arms the jar for ONE drag, then hands the finger back to the tool —
+// set the lean, pour the layer.
+function toggleTiltDrag() {
+    if (tiltMode === 'phone') stopPhone();
+    tiltMode = tiltMode === 'drag' ? null : 'drag';
+    dragTilt = null;
+    renderTilt();
+    blit();
+}
+function tiltStroke(kind, x, y) {
+    if (kind === 'down') {
+        dragTilt = { x0: x, y0: y, x, y, moved: false };
+    } else if (kind === 'move' && dragTilt) {
+        dragTilt.x = x; dragTilt.y = y;
+        const d = leanFromVector(x - dragTilt.x0, y - dragTilt.y0, MIN_DRAG_CELLS);
+        if (d !== null) { dragTilt.moved = true; leanTo(follow(leanDeg, snapDeg(d), 1)); }
+    } else if (dragTilt) {
+        if (!dragTilt.moved) leanTo(0);          // a tap: upright
+        dragTilt = null;
+        tiltMode = null;
+        renderTilt();
+    }
+    wake();                                      // the arrow is drawn by the loop's blit
 }
 
 // ── undo ───────────────────────────────────────────────────────────────────
@@ -347,6 +392,7 @@ const gestures = createGestures({
     W, H,
     on: {
         stroke(kind, x, y) {
+            if (tiltMode === 'drag' || dragTilt) return tiltStroke(kind, x, y);
             if (kind === 'down') {
                 remember();
                 pointer.active = true;
@@ -406,7 +452,7 @@ const loop = Arcade.loop((deltaMs) => {
 
     // Settled and untouched: this frame drew the final picture, the next
     // would draw it again. Stop, and let a settled picture be the one saved.
-    if (!pointer.active && sim.quiet()) {
+    if (!pointer.active && !dragTilt && sim.quiet()) {
         rest();
         if (dirty) flushSave();
     }
@@ -450,7 +496,8 @@ async function flushSave() {
             thumb: makeThumb(),
             template: template ? { png: template.png, opacity: template.opacity } : null,
             palette: extra,
-            gravity,
+            lean: leanDeg,
+            gravity: ringFromLean(leanDeg),          // for a build that predates `lean`
         });
         openMeta.created = rec.created;
         Arcade.state.set('open', openId);
@@ -524,7 +571,8 @@ async function openRecord(rec) {
     openMeta = { name: rec.name || '', created: rec.created || 0 };
     history.clear(); syncHistory();
     stopPhone();
-    setTilt(rec.gravity);
+    tiltMode = null; dragTilt = null;
+    setLean(typeof rec.lean === 'number' ? rec.lean : leanFromRing(rec.gravity));
     dirty = false;
     Arcade.state.set('open', openId);
     await setTemplate(next, rec.palette);
@@ -540,7 +588,8 @@ async function freshJar() {
     sim.clear();
     history.clear(); syncHistory();
     stopPhone();
-    setTilt([0, 1]);
+    tiltMode = null; dragTilt = null;
+    setLean(0);
     openId = newId();
     const n = (await gallery.list()).length + 1;
     openMeta = { name: 'Jar ' + n, created: 0 };
@@ -776,11 +825,12 @@ function buildUi() {
     }, { passive: false });
     els.fit.addEventListener('click', () => gestures.setView({ scale: 1, x: 0, y: 0 }));
     els.lift.addEventListener('click', () => { setLift(!lift); savePrefs(); });
-    els.tilt.addEventListener('click', cycleTilt);
+    els.tilt.addEventListener('click', toggleTiltDrag);
+    els.phone.addEventListener('click', togglePhone);
     // Motion switched off in the launcher's menu mid-pour: the jar keeps the
     // lean it has, and the chip goes back to being a hand's.
     if (Arcade.motion && Arcade.motion.onChange) {
-        Arcade.motion.onChange((c) => { if (phone && !c.running) { stopPhone(); setTilt(gravity); } });
+        Arcade.motion.onChange((c) => { if (phone && !c.running) stopPhone(); else renderTilt(); });
     }
     els.undo.addEventListener('click', () => travel(true));
     els.redo.addEventListener('click', () => travel(false));
@@ -812,6 +862,7 @@ async function boot() {
     sim = await sand.create({ width: W, height: H, seed: 'sand-art' });
     repalette();
     els.tilt.hidden = !canTilt();
+    renderTilt();
 
     const prefs = Arcade.state.get('prefs');
     if (prefs && typeof prefs === 'object') {
@@ -873,7 +924,7 @@ async function boot() {
             running: () => looping, sim, pickTool, pickTint, flushSave,
             importFile: addPicture, gallery, freshJar, openRecord,
             template: () => template, extra: () => extra, openId: () => openId, setLanding,
-            showLibrary, gestures, history, travel, setTilt, gravity: () => gravity,
+            showLibrary, gestures, history, travel, setLean, lean: () => leanDeg, toggleTiltDrag, togglePhone,
         };
     }
 }

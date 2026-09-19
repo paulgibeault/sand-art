@@ -95,15 +95,30 @@ finger of a pinch lands a few milliseconds after the first, so a stroke
 waits an 80 ms grace before it commits (a tap or a drag commits at once)
 and a pinch never leaves a dot.
 
-**Tilt** is the jar's gravity, stepped by hand: upright, leaning left,
-leaning right. Inside the arcade on a phone the chip has a fourth stop,
-**Phone**, where the jar follows the way the phone is really held, through
-all eight of the kernel's directions (`Arcade.motion.compass(8)` →
-`sim.tilt()`; `tilt.js` has the chip's states). The launcher asks once
-before any game may sense motion and can take it back from its menu; the
-sensor runs only while the chip says Phone; and what a jar saves is the lean
-the phone chose, never the samples. Without motion the chip is exactly what
-it was.
+**Tilt** is the jar's lean, an angle: how far gravity swings from straight
+down. It goes to the kernel's `sim.lean()` (SDK 3.18, rule R18), which rests
+a pile's downhill face at 45° less the lean and lets a poured stream fall at
+it — so ten degrees of tilt is ten degrees of slope, not nothing until 45°
+and then everything. Two hands set it (`tilt.js` has the arithmetic):
+
+- **Drag.** Tap **Tilt** and the next one-finger drag on the jar *is*
+  gravity: where the finger lands is the reference point, the vector from it
+  is down, live, with an arrow drawn on the jar. Lift, and the finger is the
+  tool again with the jar still leaning — set the lean, pour the layer. A tap
+  instead of a drag stands the jar upright. A mouse works the same way.
+- **Phone.** Inside the arcade on a phone a second chip appears, and the jar
+  follows the way the phone is really held (`Arcade.motion`, SDK 3.17): the
+  raw gravity vector, smoothed, snapped to an axis within 3°, held at 45°
+  until the hand is clearly past it (that is where the kernel makes the wall
+  the floor), and handed on only when it has moved a degree and a half — a
+  still hand must change nothing, because every change wakes the whole jar
+  and the screen could never rest. The launcher asks once before any game
+  may sense motion and can take it back from its menu; the sensor runs only
+  while the chip is lit.
+
+A jar saves its lean (and the nearest of the old eight directions beside it,
+for a build that predates `lean`) — never which hand set it, never the
+samples. On a kernel without `lean()` both hands still work, in 45° steps.
 
 **Undo** is a snapshot of the grid before every stroke, and before
 **Empty**: two dozen of them, 60 KB each, and one `sim.load()` to go back

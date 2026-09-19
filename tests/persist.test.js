@@ -133,6 +133,12 @@ test("a tilt is saved beside the grid, and only a real one", async () => {
     assert.strictEqual((await g.get("bad")).gravity, null, "off the ring is not a tilt");
     const copy = await g.add(await g.get("t"), "Copy");
     assert.deepStrictEqual(copy.gravity, [1, 1], "a copy keeps the tilt");
+    await g.save(filled(), { id: "lean", name: "Leaning", lean: 12.34, gravity: [0, 1] });
+    assert.strictEqual((await g.get("lean")).lean, 12.3, "a lean is an angle, kept to a tenth of a degree");
+    for (const bad of [0, 0.01, NaN, 200, "12", null]) {
+        await g.save(filled(), { id: "l" + String(bad), name: "x", lean: bad });
+        assert.strictEqual((await g.get("l" + String(bad))).lean, null, "upright or not an angle is no lean: " + bad);
+    }
     assert.strictEqual(isTilt([0, 1]), false); assert.strictEqual(isTilt([0, 0]), false);
     assert.strictEqual(isTilt([-1, 1]), true); assert.strictEqual(isTilt("1,1"), false);
 });
